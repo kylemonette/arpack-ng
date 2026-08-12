@@ -8,7 +8,7 @@ c  Intermediate level interface called by mydnaupd.
 c
 c  This is a local fork of dnaup2 (arguments unchanged). Internally, it
 c  computes the full real Schur decomposition of the current KEV+NP
-c  upper Hessenberg matrix H (via LAPACK's DHSEQR) ONCE per iteration,
+c  upper Hessenberg matrix H (via LAPACK's DLAHQR) ONCE per iteration,
 c  right after the Arnoldi expansion: the Ritz values and error bounds
 c  used for convergence testing are read directly off it (replacing
 c  dnaup2's dneigh call, whose internal QR pass this subsumes). At
@@ -144,7 +144,6 @@ c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      character  wprime*2
       logical    cnorm , getv0, initv, update, ushift
       integer    ierr  , iter , j    , kplusp, msglvl, nconv,
      &           nevbef, nev0 , np0  , nptemp, numcnv
@@ -714,23 +713,16 @@ c
          end if
 c
 c        %----------------------------------------------------------%
-c        | The full real Schur decomposition of the current KEV+NP  |
-c        | upper Hessenberg H (T in ARROWSCHUR, Z in ARROWSCHURVEC, |
-c        | eigenvalues in ARROWWR/ARROWWI, all still aligned with   |
-c        | each other -- dngets sorted RITZR/RITZI, not these) was  |
-c        | already computed by the single DHSEQR call at the top of |
-c        | this iteration (see the OPTIMIZATION note there). H has  |
-c        | not changed since, and DTREVC did not modify T or Z, so  |
-c        | it is simply reused here -- no second decomposition is   |
-c        | needed. The SAVE attribute on these arrays guarantees    |
-c        | they survive the ISHIFT=0 reverse-communication exit     |
-c        | above. (DTRSEN below reorders T and Z in place; that is  |
-c        | fine, since they are recomputed fresh next iteration.)   |
+c        | ARROWSCHUR/ARROWSCHURVEC/ARROWWR/ARROWWI were already    |
+c        | computed above and are reused here (see the declaration  |
+c        | comment for why they are SAVEd allocatables). DTRSEN     |
+c        | below reorders T and Z in place; that is fine, since     |
+c        | they are recomputed fresh next iteration.                |
 c        %----------------------------------------------------------%
 c
 c        %----------------------------------------------------------%
 c        | Classify each diagonal block (1x1 or 2x2) of the fresh   |
-c        | Schur form. DHSEQR already returns each position's       |
+c        | Schur form. DLAHQR already returns each position's       |
 c        | eigenvalue directly in ARROWWR/ARROWWI (both rows of a   |
 c        | 2x2 block carry its complex-conjugate pair), so no extra |
 c        | eigenvalue computation (e.g. DLANV2) is needed here.     |

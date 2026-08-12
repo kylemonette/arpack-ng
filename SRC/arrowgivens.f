@@ -6,12 +6,7 @@ c
 c\Description:
 c  Tridiagonalizes an M by M symmetric "upward-pointing" arrowhead
 c  matrix A (hub at position (1,1), spike along row/column 1) using
-c  the one-way Givens chasing scheme described in Zha (1992). This is
-c  a direct Fortran translation of the reference MATLAB implementation
-c  symm_arrow_givens.m from:
-c
-c    "A Unified View of Arrowhead Matrix Transformations and Lanczos
-c     Restarts", James Baglama, Kyle Monette, Vasilije Perovic (2026).
+c  the one-way Givens chasing scheme of Zha (see reference 2 below).
 c
 c\Usage:
 c  call arrowgivens
@@ -64,6 +59,11 @@ c
 c\Routines called:
 c     dlaset  LAPACK matrix initialization routine.
 c     dlartg  LAPACK Givens rotation construction routine.
+c
+c\Author
+c     James Baglama
+c     Kyle Monette
+c     Vasilije Perovic
 c
 c\EndLib
 c

@@ -270,7 +270,7 @@ c     | its EIGVAL/EIGVEC inputs pre-sorted this way; it does not do |
 c     | any selection itself.                                        |
 c     %--------------------------------------------------------------%
 c
-      integer    arrowkeepidx(ldh)
+      integer    arrowkeepidx(ldh), kevd2
       Double precision
      &           arrowsortval(ldh), arrowsortvec(ldh,ldh),
      &           arrowsortidx(ldh)
@@ -819,12 +819,9 @@ c
          end if
 c
 c        %---------------------------------------------------------%
-c        | The full eigendecomposition of the current KEV+NP       |
-c        | tridiagonal H (ARROWEIGVAL/ARROWEIGVEC) was already     |
-c        | computed by the single dsteqr call at the top of this   |
-c        | iteration. H has not changed since, so it is reused.    |
-c        | The SAVE attribute on these arrays guarantees they      |
-c        | survive the ISHIFT=0 reverse-communication exit above.  |
+c        | ARROWEIGVAL/ARROWEIGVEC were already computed above and |
+c        | are reused here (see the declaration comment for why    |
+c        | they are SAVEd allocatables).                           |
 c        %---------------------------------------------------------%
 c
 c        %-----------------------------------------------------------%
@@ -835,19 +832,35 @@ c        | carrying an index array along as the permutation.         |
 c        | DSORTR sorts ascending, so the NEV most-wanted            |
 c        | eigenvalues land in the LAST NEV slots. ARROWKEEPIDX      |
 c        | then records, for each of those NEV slots, which          |
-c        | original column of ARROWEIGVEC it came from.              |
+c        | original column of ARROWEIGVEC it came from. DSORTR has   |
+c        | no 'BE' criterion, so that case is handled as in dsgets:  |
+c        | sort algebraically increasing, then swap the low end      |
+c        | next to the high end.                                    |
 c        %-----------------------------------------------------------%
 c
          do 1130 j = 1, kplusp
             arrowsortidx(j) = dble(j)
  1130    continue
 c
-         call dsortr (which, .true., kplusp, arroweigval, arrowsortidx)
+         if (which .eq. 'BE') then
+            call dsortr ('LA', .true., kplusp, arroweigval,
+     &                   arrowsortidx)
+            kevd2 = nev / 2
+            if (nev .gt. 1) then
+               call dswap (min(kevd2,np), arroweigval, 1,
+     &                     arroweigval(max(kevd2,np)+1), 1)
+               call dswap (min(kevd2,np), arrowsortidx, 1,
+     &                     arrowsortidx(max(kevd2,np)+1), 1)
+            end if
+         else
+            call dsortr (which, .true., kplusp, arroweigval,
+     &                   arrowsortidx)
+         end if
 c
 c        %---------------------------------------------------------%
-c        | In mydsapps_house's, only the leading NEV               |
-c        | columns of EIGVAL/EIGVEC are needed; NEV+1:KPLUSP (the  |
-c        | undesired eigenpairs) are never referenced.             |
+c        | Only the leading NEV columns of EIGVAL/EIGVEC are       |
+c        | needed; NEV+1:KPLUSP (the undesired eigenpairs) are     |
+c        | never referenced.                                       |
 c        %---------------------------------------------------------%
 c
          do 1190 j = 1, nev

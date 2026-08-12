@@ -194,7 +194,8 @@ c
      &           rnorm, betak
       Double precision
      &           d(kev+1,kev+1), qarrow(kev+1,kev+1),
-     &           qfinal(kev+np,kev), vnew(n,kev)
+     &           qfinal(kev+np,kev)
+      Double precision, allocatable :: vnew(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -296,9 +297,11 @@ c     %--------------------------------------------------------%
 c     | Update V: V(:,1:kev) <- V(:,1:kplusp) * QFINAL.        |
 c     %--------------------------------------------------------%
 c
+      allocate (vnew(n,kev))
       call dgemm ('N', 'N', n, kev, kplusp, one, v, ldv, qfinal,
      &            kplusp, zero, vnew, n)
       call dlacpy ('All', n, kev, vnew, n, v, ldv)
+      deallocate (vnew)
 c
 c     %--------------------------------------------------------%
 c     | Update the residual vector. As shown in Reference 2,   |

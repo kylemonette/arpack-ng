@@ -58,9 +58,8 @@ c  RESID   Double precision array of length (N).  (INPUT/OUTPUT)
 c          INPUT: RESID contains the the residual vector r_{k+p}.
 c          OUTPUT: RESID is the updated residual vector rnew_{k}.
 c
-c  Q       Double precision KEV+NP by KEV+NP work array.  (WORKSPACE)
-c          Work array used to accumulate the rotations during the bulge
-c          chase sweep.
+c  Q       Double precision KEV+NP by KEV+NP work array.  (WORKSPACE,
+c          unused -- kept for interface parity with DSAPPS.)
 c
 c  LDQ     Integer.  (INPUT)
 c          Leading dimension of Q exactly as declared in the calling
@@ -105,6 +104,9 @@ c     pp 357-385.
 c  2. R.B. Lehoucq, "Analysis and Implementation of an Implicitly
 c     Restarted Arnoldi Iteration", Rice University Technical Report
 c     TR95-13, Department of Computational and Applied Mathematics.
+c  3. A Unified View of Arrowhead Matrix Transformations and Lanczos
+c     Restarts (and nonsymmetric companion), James Baglama,
+c     Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
 c     ivout   ARPACK utility routine that prints integers.
@@ -134,12 +136,16 @@ c\SCCS Information: @(#)
 c FILE: sapps.F   SID: 2.6   DATE OF SID: 3/28/97   RELEASE: 2
 c
 c\Remarks
-c  1. In this version, each shift is applied to all the subblocks of
-c     the tridiagonal matrix H and not just to the submatrix that it
-c     comes from. This routine assumes that the subdiagonal elements
-c     of H that are stored in h(1:kev+np,1) are nonegative upon input
-c     and enforce this condition upon output. This version incorporates
-c     deflation. See code for documentation.
+c  1. This routine replaces DSAPPS's classical implicit-shift bulge-
+c     chasing (shifts applied one at a time via QL/QR sweeps) with the
+c     symmetric arrowhead restart of Reference 3. Given the caller's
+c     full eigendecomposition of the current KEV+NP tridiagonal H
+c     (EIGVAL, EIGVEC), already arranged so the first KEV entries/
+c     columns are the desired eigenpairs, form the (KEV+1) by (KEV+1)
+c     arrowhead matrix built from those KEV desired eigenpairs plus
+c     the residual attachment, reduce it directly to tridiagonal form
+c     via one-way Givens chasing (ARROWGIVENS, following Zha (1992)),
+c     and read the new H, V, and RESID off that result.
 c
 c\EndLib
 c
@@ -188,7 +194,8 @@ c
      &           rnorm, betak
       Double precision
      &           drot(kev+1,kev+1), qrot(kev+1,kev+1), qk1(kev,kev),
-     &           qfinal(kev+np,kev), vnew(n,kev)
+     &           qfinal(kev+np,kev)
+      Double precision, allocatable :: vnew(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -308,9 +315,11 @@ c     %-------------------------------------------------%
 c     | Update V: V(:,1:kev) <- V(:,1:kplusp) * QFINAL. |
 c     %-------------------------------------------------%
 c
+      allocate (vnew(n,kev))
       call dgemm ('N', 'N', n, kev, kplusp, one, v, ldv, qfinal,
      &            kplusp, zero, vnew, n)
       call dlacpy ('All', n, kev, vnew, n, v, ldv)
+      deallocate (vnew)
 c
 c     %--------------------------------------------------------%
 c     | Update the residual vector. RESID_new is BETAK times.  |
@@ -327,8 +336,8 @@ c
  9000 continue
       return
 c
-c     %---------------%
-c     | End of dsapps |
-c     %---------------%
+c     %-----------------%
+c     | End of mydsapps |
+c     %-----------------%
 c
       end
