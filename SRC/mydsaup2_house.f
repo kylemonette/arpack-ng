@@ -866,9 +866,8 @@ c
          do 1190 j = 1, nev
             arrowkeepidx(j) = nint(arrowsortidx(kplusp-nev+j))
             arrowsortval(j) = arroweigval(kplusp-nev+j)
-            do 1180 i = 1, kplusp
-               arrowsortvec(i,j) = arroweigvec(i,arrowkeepidx(j))
- 1180       continue
+            call dcopy (kplusp, arroweigvec(1,arrowkeepidx(j)), 1,
+     &                  arrowsortvec(1,j), 1)
  1190    continue
 c
 c        %---------------------------------------------------------%
