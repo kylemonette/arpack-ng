@@ -121,8 +121,8 @@ c
       Double precision
      &           drot(kev+1,kev+1), hbuf(kev+1,kev+1),
      &           tau(kev),
-     &           qfinal(kev+np,kev), vnew(n,kev), qk1(kev,kev)
-      Double precision, allocatable :: housework(:)
+     &           qfinal(kev+np,kev), qk1(kev,kev)
+      Double precision, allocatable :: housework(:), vnew(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -252,9 +252,11 @@ c
       call dgemm ('N', 'N', kplusp, kev, kev, one, qschur, ldqschur,
      &            qk1, kev, zero, qfinal, kplusp)
 c
+      allocate (vnew(n,kev))
       call dgemm ('N', 'N', n, kev, kplusp, one, v, ldv, qfinal,
      &            kplusp, zero, vnew, n)
       call dlacpy ('All', n, kev, vnew, n, v, ldv)
+      deallocate (vnew)
 c
       if (rnorm .gt. zero) then
          call dscal (n, betak/rnorm, resid, 1)

@@ -4,22 +4,16 @@ c
 c\Name: narrowgivens
 c
 c\Description:
-c  Reduces an M by M NONSYMMETRIC arrowhead matrix D (pointing
-c  southeast: hub D(M,M), spike along the last row/column, quasi-upper
-c  -triangular leading block D(1:M-1,1:M-1)) to upper Hessenberg form
-c  using Givens rotations in a one-way chasing scheme in the style of
-c  Zha (1992). This is a direct Fortran translation of the reference
-c  MATLAB implementation from:
+c  Reduces an M by M nonsymmetric arrowhead matrix D (pointing
+c  southeast: hub D(M,M), spike along the last row/column, quasi-
+c  upper-triangular leading block D(1:M-1,1:M-1)) to upper Hessenberg
+c  form using Givens rotations in a one-way chasing scheme in the
+c  style of Zha (see reference 2 below).
 c
-c    "A Unified View of Arrowhead Matrix Transformations and Lanczos
-c     Restarts" and its nonsymmetric companion, James Baglama,
-c     Kyle Monette, Vasilije Perovic (2026).
-c
-c  IMPORTANT -- unlike ARROWGIVENS (the symmetric routine, which needs
-c  D pre-rotated 180 degrees and transposed via the permutation Pi
-c  before being handed a hub-at-(1,1) matrix), NO such rotation of D
-c  is required here: this routine chases the spike directly out of D
-c  in its natural "downward-pointing" form.
+c  Unlike ARROWGIVENS (the symmetric routine, whose input must be
+c  pre-rotated to put the hub at (1,1)), no such rotation of D is
+c  needed here: the spike is chased directly out of its natural
+c  "downward-pointing" form.
 c
 c\Usage:
 c  call narrowgivens
@@ -75,6 +69,11 @@ c
 c\Routines called:
 c     dlaset  LAPACK matrix initialization routine.
 c     dlartg  LAPACK Givens rotation construction routine.
+c
+c\Author
+c     James Baglama
+c     Kyle Monette
+c     Vasilije Perovic
 c
 c\EndLib
 c

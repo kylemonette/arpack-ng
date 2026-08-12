@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: mydsaupd 
+c\Name: mydsaupd
 c
 c\Description:
 c
@@ -685,8 +685,8 @@ c
 c
       return
 c
-c     %---------------%
-c     | End of dsaupd |
-c     %---------------%
+c     %-----------------%
+c     | End of mydsaupd |
+c     %-----------------%
 c
       end
