@@ -248,11 +248,7 @@ c     %--------------------------------------------------------%
 c
       call dlaset ('All', kev+1, kev+1, zero, zero, d, kev+1)
 c
-      do 60 j = 1, kev
-         do 50 i = 1, kev
-            d(i,j) = tschur(i,j)
-   50    continue
-   60 continue
+      call dlacpy ('All', kev, kev, tschur, ldtschur, d, kev+1)
 c
       do 70 i = 1, kev
          d(i,kev+1) = rnorm * qschur(kplusp,i)
@@ -273,11 +269,7 @@ c     | and BETAK (the new residual coupling), directly out of |
 c     | the reduced result.                                    |
 c     %--------------------------------------------------------%
 c
-      do 90 j = 1, kev
-         do 80 i = 1, kev
-            h(i,j) = d(i,j)
-   80    continue
-   90 continue
+      call dlacpy ('All', kev, kev, d, kev+1, h, ldh)
 c
       betak = d(kev+1,kev)
 c
