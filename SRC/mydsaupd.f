@@ -378,7 +378,7 @@ c\Routines called:
 c     mydsaup2 Local fork of dsaup2 (ARPACK routine that implements the
 c             Implicitly Restarted Arnoldi Iteration) that additionally
 c             computes the full tridiagonal eigendecomposition and
-c             passes it into mydsapps.
+c             passes it into mydsapps (called here with HOUSE=.FALSE.).
 c     dstats   ARPACK routine that initialize timing and other statistics
 c             variables.
 c     ivout   ARPACK utility routine that prints integers.
@@ -605,7 +605,7 @@ c
      &   ( ido, bmat, n, which, nev0, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, workl(ih), ldh, workl(ritz),
      &     workl(bounds), workl(iq), ldq, workl(iw), ipntr, workd,
-     &     info )
+     &     info, .false. )
 c
 c     %--------------------------------------------------%
 c     | ido .ne. 99 implies use of reverse communication |

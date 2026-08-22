@@ -375,10 +375,11 @@ c  8. R.B. Lehoucq, D.C. Sorensen, "Implementation of Some Spectral
 c     Transformations in a k-Step Arnoldi Method". In Preparation.
 c
 c\Routines called:
-c     mydsaup2_house Local fork of dsaup2 (ARPACK routine that implements the
+c     mydsaup2 Local fork of dsaup2 (ARPACK routine that implements the
 c             Implicitly Restarted Arnoldi Iteration) that additionally
 c             computes the full tridiagonal eigendecomposition and
-c             passes it into mydsapps.
+c             passes it into mydsapps_house (called here with
+c             HOUSE=.TRUE.).
 c     dstats   ARPACK routine that initialize timing and other statistics
 c             variables.
 c     ivout   ARPACK utility routine that prints integers.
@@ -458,7 +459,7 @@ c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
-      external   mydsaup2_house ,  dvout , ivout, arscnd, dstats
+      external   mydsaup2 ,  dvout , ivout, arscnd, dstats
 c
 c     %--------------------%
 c     | External Functions |
@@ -601,11 +602,11 @@ c     %-------------------------------------------------------%
 c     | Carry out the Implicitly restarted Lanczos Iteration. |
 c     %-------------------------------------------------------%
 c
-      call mydsaup2_house
+      call mydsaup2
      &   ( ido, bmat, n, which, nev0, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, workl(ih), ldh, workl(ritz),
      &     workl(bounds), workl(iq), ldq, workl(iw), ipntr, workd,
-     &     info )
+     &     info, .true. )
 c
 c     %--------------------------------------------------%
 c     | ido .ne. 99 implies use of reverse communication |

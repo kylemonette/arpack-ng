@@ -6,20 +6,22 @@ c
 c\Description:
 c  Intermediate level interface called by dsaupd.
 c
-c  This is a local fork of dsaup2 (arguments unchanged). Internally, it
-c  computes the full eigendecomposition of the current KEV+NP
-c  tridiagonal matrix H (via dsteqr) ONCE per iteration, right after
-c  the Lanczos expansion: the Ritz values and error bounds used for
-c  convergence testing are read directly off it (replacing dsaup2's
-c  dseigt call), and the same decomposition is then reused at shift-
-c  application time by mydsapps (a fork of dsapps that accepts it as a
-c  new input) instead of calling dsapps directly with a shift list.
+c  This is a local fork of dsaup2 (arguments unchanged, aside from the
+c  new trailing HOUSE flag). Internally, it computes the full
+c  eigendecomposition of the current KEV+NP tridiagonal matrix H (via
+c  dsteqr) ONCE per iteration, right after the Lanczos expansion: the
+c  Ritz values and error bounds used for convergence testing are read
+c  directly off it (replacing dsaup2's dseigt call), and the same
+c  decomposition is then reused at shift-application time by mydsapps
+c  or mydsapps_house (forks of dsapps that accept it as a new input)
+c  instead of calling dsapps directly with a shift list. HOUSE selects
+c  which of the two shift-application routines is used.
 c
 c\Usage:
 c  call mydsaup2
 c     ( IDO, BMAT, N, WHICH, NEV, NP, TOL, RESID, MODE, IUPD,
 c       ISHIFT, MXITER, V, LDV, H, LDH, RITZ, BOUNDS, Q, LDQ, WORKL,
-c       IPNTR, WORKD, INFO )
+c       IPNTR, WORKD, INFO, HOUSE )
 c
 c\Arguments
 c
@@ -121,6 +123,12 @@ c          =    -9: Starting vector is zero.
 c          = -9999: Could not build an Lanczos factorization.
 c                   Size that was built in returned in NP.
 c
+c  HOUSE   Logical.  (INPUT)
+c          Selects which shift-application routine is used each time
+c          NP implicit shifts are applied:
+c          .TRUE.  calls mydsapps_house (Householder-based).
+c          .FALSE. calls mydsapps (Givens-based).
+c
 c\EndDoc
 c
 c-----------------------------------------------------------------------
@@ -190,7 +198,7 @@ c
       subroutine mydsaup2
      &   ( ido, bmat, n, which, nev, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, h, ldh, ritz, bounds,
-     &     q, ldq, workl, ipntr, workd, info )
+     &     q, ldq, workl, ipntr, workd, info, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -204,6 +212,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       character  bmat*1, which*2
+      logical    house
       integer    ido, info, ishift, iupd, ldh, ldq, ldv, mxiter,
      &           n, mode, nev, np
       Double precision
@@ -247,12 +256,13 @@ c     | current KEV+NP tridiagonal H. Computed ONCE per iteration    |
 c     | (right after the Lanczos expansion, replacing the dseigt     |
 c     | call -- the Ritz values and error bounds are read directly   |
 c     | off this decomposition) and reused at shift-application      |
-c     | time by mydsapps. ARROWEIGVAL/ARROWEIGVEC carry data from    |
-c     | the computation site to the shift site, across the possible  |
-c     | ISHIFT=0 reverse-communication exit in between, so they are  |
-c     | SAVEd allocatables (re-sized if LDH ever changes between     |
-c     | problems). ARROWSUBD/ARROWWORK are scratch used only at the  |
-c     | computation site itself.                                     |
+c     | time by mydsapps or mydsapps_house (HOUSE selects which).    |
+c     | ARROWEIGVAL/ARROWEIGVEC carry data from the computation site |
+c     | to the shift site, across the possible ISHIFT=0 reverse-     |
+c     | communication exit in between, so they are SAVEd allocatables|
+c     | (re-sized if LDH ever changes between problems).             |
+c     | ARROWSUBD/ARROWWORK are scratch used only at the computation |
+c     | site itself.                                                  |
 c     %--------------------------------------------------------------%
 c
       integer    arrowierr
@@ -265,9 +275,9 @@ c     %--------------------------------------------------------------%
 c     | Local workspace for selecting/reordering the KEV+NP          |
 c     | eigenpairs above so the NEV "desired" ones (per the fresh    |
 c     | ARROWEIGVAL, sorted directly by the user's WHICH preference) |
-c     | end up in the first NEV positions. mydsapps requires its     |
-c     | EIGVAL/EIGVEC inputs pre-sorted this way; it does not do any |
-c     | selection itself.                                            |
+c     | end up in the first NEV positions. mydsapps/mydsapps_house   |
+c     | require their EIGVAL/EIGVEC inputs pre-sorted this way; they |
+c     | do not do any selection themselves.                          |
 c     %--------------------------------------------------------------%
 c
       integer    arrowkeepidx(ldh), kevd2
@@ -280,7 +290,8 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dgetv0, dsaitr, dscal, dsconv, dsgets,
-     &           mydsapps, dsortr, dvout, ivout, arscnd, dswap, dsteqr
+     &           mydsapps, mydsapps_house, dsortr, dvout, ivout,
+     &           arscnd, dswap, dsteqr
 c
 c     %--------------------%
 c     | External Functions |
@@ -873,12 +884,18 @@ c        %---------------------------------------------------------%
 c        | Apply the NP0 implicit shifts by QR bulge chasing.      |
 c        | Each shift is applied to the entire tridiagonal matrix. |
 c        | The first 2*N locations of WORKD are used as workspace. |
-c        | After mydsapps is done, we have a Lanczos               |
+c        | HOUSE selects mydsapps_house (Householder) or mydsapps  |
+c        | (Givens). After it is done, we have a Lanczos           |
 c        | factorization of length NEV.                            |
 c        %---------------------------------------------------------%
 c
-         call mydsapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
-     &        arrowsortval, arrowsortvec, ldh, workd)
+         if (house) then
+            call mydsapps_house (n, nev, np, v, ldv, h, ldh, resid, q,
+     &           ldq, arrowsortval, arrowsortvec, ldh, workd)
+         else
+            call mydsapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
+     &           arrowsortval, arrowsortvec, ldh, workd)
+         end if
 c
 c        %---------------------------------------------%
 c        | Compute the B-norm of the updated residual. |
