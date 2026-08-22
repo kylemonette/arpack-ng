@@ -498,9 +498,6 @@ c
 c        %--------------------------------------------------------%
 c        | Compute the eigenvalues and corresponding error bounds |
 c        | of the current symmetric tridiagonal matrix.           |
-c        |                                                        |
-c        | The full eigendecomposition is computed ONCE and       |
-c        | reused at shift-application time by mydsapps           |
 c        %--------------------------------------------------------%
 c
          if (allocated(arroweigval)) then
@@ -876,7 +873,7 @@ c        %---------------------------------------------------------%
 c        | Apply the NP0 implicit shifts by QR bulge chasing.      |
 c        | Each shift is applied to the entire tridiagonal matrix. |
 c        | The first 2*N locations of WORKD are used as workspace. |
-c        | After mydsapps is done, we have a Lanczos                |
+c        | After mydsapps is done, we have a Lanczos               |
 c        | factorization of length NEV.                            |
 c        %---------------------------------------------------------%
 c
