@@ -169,7 +169,7 @@ c
 c     %--------------------------------------------------------------%
 c     | Local workspace for the fresh real Schur decomposition of the|
 c     | current KEV+NP upper Hessenberg H, computed just before      |
-c     | applying shifts and passed into dqapps. Sized by LDH, the  |
+c     | applying shifts and passed into dqapps. Sized by LDH, the    |
 c     | same bound H itself uses (the actual size in use at any      |
 c     | point is KPLUSP <= LDH).                                     |
 c     %--------------------------------------------------------------%
@@ -363,7 +363,7 @@ c
 c        %-----------------------------------------------------------%
 c        | Compute NP additional steps of the Arnoldi factorization. |
 c        | Adjust NP since NEV might have been updated by last call  |
-c        | to the shift application routine dqapps.                |
+c        | to the shift application routine dqapps.                  |
 c        %-----------------------------------------------------------%
 c
          np  = kplusp - nev
@@ -804,7 +804,7 @@ c        %----------------------------------------------------------%
 c        | Every index 1..KPLUSP belongs to exactly one block (the  |
 c        | scan above partitions 1..KPLUSP with no gaps/overlaps),  |
 c        | so ARROWSELECT can be set directly from ARROWCONSUMED in |
-c        | one pass.                                                 |
+c        | one pass.                                                |
 c        %----------------------------------------------------------%
 c
          do 1250 j = 1, arrownblk
@@ -916,7 +916,7 @@ c
  9000 continue
 c
 c     %-----------------%
-c     | End of dqaup2 |
+c     | End of dqaup2   |
 c     %-----------------%
 c
       return

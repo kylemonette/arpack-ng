@@ -6,8 +6,7 @@ c
 c\Description:
 c  Intermediate level interface called by dsaupd.
 c
-c  This is a local fork of dsaup2 (arguments unchanged, aside from the
-c  new trailing HOUSE flag). Internally, it computes the full
+c  This is a local fork of dsaup2. Internally, it computes the full
 c  eigendecomposition of the current KEV+NP tridiagonal matrix H (via
 c  dsteqr) ONCE per iteration, right after the Lanczos expansion: the
 c  Ritz values and error bounds used for convergence testing are read
@@ -256,13 +255,13 @@ c     | current KEV+NP tridiagonal H. Computed ONCE per iteration    |
 c     | (right after the Lanczos expansion, replacing the dseigt     |
 c     | call -- the Ritz values and error bounds are read directly   |
 c     | off this decomposition) and reused at shift-application      |
-c     | time by drapps (HOUSE selects Householder vs. Givens).     |
+c     | time by drapps (HOUSE selects Householder vs. Givens).       |
 c     | ARROWEIGVAL/ARROWEIGVEC carry data from the computation site |
 c     | to the shift site, across the possible ISHIFT=0 reverse-     |
 c     | communication exit in between, so they are SAVEd allocatables|
 c     | (re-sized if LDH ever changes between problems).             |
 c     | ARROWSUBD/ARROWWORK are scratch used only at the computation |
-c     | site itself.                                                  |
+c     | site itself.                                                 |
 c     %--------------------------------------------------------------%
 c
       integer    arrowierr
@@ -275,7 +274,7 @@ c     %--------------------------------------------------------------%
 c     | Local workspace for selecting/reordering the KEV+NP          |
 c     | eigenpairs above so the NEV "desired" ones (per the fresh    |
 c     | ARROWEIGVAL, sorted directly by the user's WHICH preference) |
-c     | end up in the first NEV positions. drapps requires its     |
+c     | end up in the first NEV positions. drapps requires its       |
 c     | EIGVAL/EIGVEC inputs pre-sorted this way; it does not do any |
 c     | selection itself.                                            |
 c     %--------------------------------------------------------------%
@@ -844,7 +843,7 @@ c        | then records, for each of those NEV slots, which          |
 c        | original column of ARROWEIGVEC it came from. DSORTR has   |
 c        | no 'BE' criterion, so that case is handled as in dsgets:  |
 c        | sort algebraically increasing, then swap the low end      |
-c        | next to the high end.                                    |
+c        | next to the high end.                                     |
 c        %-----------------------------------------------------------%
 c
          do 1130 j = 1, kplusp
@@ -883,10 +882,10 @@ c        %---------------------------------------------------------%
 c        | Apply the NP0 implicit shifts by QR bulge chasing.      |
 c        | Each shift is applied to the entire tridiagonal matrix. |
 c        | The first 2*N locations of WORKD are used as workspace. |
-c        | HOUSE is passed straight through to drapps, which     |
+c        | HOUSE is passed straight through to drapps, which       |
 c        | itself selects Householder vs. Givens internally. After |
 c        | it is done, we have a Lanczos factorization of length   |
-c        | NEV.                                                     |
+c        | NEV.                                                    |
 c        %---------------------------------------------------------%
 c
          call drapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
@@ -973,7 +972,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of draup2 |
+c     | End of draup2   |
 c     %-----------------%
 c
       end

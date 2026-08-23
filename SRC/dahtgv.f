@@ -5,8 +5,8 @@ c\Name: dahtgv
 c
 c\Description:
 c  Tridiagonalizes an M by M symmetric "upward-pointing" arrowhead
-c  matrix A (hub at position (1,1), spike along row/column 1) using
-c  the one-way Givens chasing scheme of Zha (see reference 2 below).
+c  matrix A using the one-way Givens chasing scheme of
+c  Zha (see reference 2 below).
 c
 c\Usage:
 c  call dahtgv
@@ -23,9 +23,6 @@ c              |a1 b2 b3 b4|
 c              |b2 a2      |
 c              |b3    a3   |
 c              |b4       a4|
-c          Only the hub (1,1), the spike A(2:M,1)/A(1,2:M), and the
-c          diagonal A(2:M,2:M) are read; all other entries are assumed
-c          zero and are never referenced.
 c          OUTPUT: A contains the resulting symmetric tridiagonal
 c          matrix - subdiagonal in column 1 starting at A(2,1), main
 c          diagonal in column 2.
@@ -37,8 +34,7 @@ c
 c  QMAT    Double precision M by M array.  (OUTPUT)
 c          On output, QMAT contains the accumulated orthogonal
 c          transformation such that A_new = QMAT' * A_old * QMAT.
-c          QMAT is initialized to the identity internally; the caller
-c          does not need to (and should not) pre-initialize it.
+c          QMAT is initialized to the identity internally.
 c
 c  LDQ     Integer.  (INPUT)
 c          Leading dimension of QMAT exactly as declared in the
@@ -197,8 +193,8 @@ c
 c
       return
 c
-c     %----------------------%
+c     %-----------------%
 c     | End of dahtgv   |
-c     %----------------------%
+c     %-----------------%
 c
       end

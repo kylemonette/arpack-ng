@@ -18,8 +18,6 @@ c  factorization becomes:
 c
 c     A*VNEW_{k} - VNEW_{k}*HNEW_{k} = rnew_{k}*e_{k}^T.
 c
-c  HOUSE selects how the (KEV+1) by (KEV+1) arrowhead matrix is
-c  tridiagonalized.
 c
 c\Usage:
 c  call drapps
@@ -148,17 +146,14 @@ c FILE: sapps.F   SID: 2.6   DATE OF SID: 3/28/97   RELEASE: 2
 c
 c\Remarks
 c  1. This routine replaces DSAPPS's classical implicit-shift bulge-
-c     chasing (shifts applied one at a time via QL/QR sweeps) with the
-c     symmetric arrowhead restart of Reference 3. Given the caller's
-c     full eigendecomposition of the current KEV+NP tridiagonal H
-c     (EIGVAL, EIGVEC), already arranged so the first KEV entries/
-c     columns are the desired eigenpairs, form the (KEV+1) by (KEV+1)
-c     arrowhead matrix built from those KEV desired eigenpairs plus
-c     the residual attachment, reduce it directly to tridiagonal form
-c     via either one-way Givens chasing (dahtgv, following Zha
-c     (1992)) or LAPACK's standard Householder reduction (DSYTRD/
-c     DORGTR) -- HOUSE selects which -- and read the new H, V, and
-c     RESID off that result.
+c     chasing with the symmetric arrowhead restart of Reference 3.
+c     Given the caller's eigendecomposition of the current KEV+NP
+c     tridiagonal H (EIGVAL, EIGVEC), already arranged so the first
+c     KEV columns are the desired eigenpairs, form the (KEV+1) by
+c     (KEV+1) arrowhead matrix built from those KEV desired eigenpairs,
+c     reduce it directly to tridiagonal form via either one-way
+c     Givens chasing (dahtgv, following Zha (1992)) or LAPACK's
+c     standard Householder reduction (DSYTRD/DORGTR).
 c
 c\EndLib
 c
@@ -236,8 +231,7 @@ c     %-----------------------%
 c
 c     %----------------------------------------------------------%
 c     | debug.h/stat.h COMMON block variables aren't set up by   |
-c     | any ARPACK driver program here (this routine is called   |
-c     | directly from a MEX gateway) -- initialize the ones this |
+c     | any ARPACK driver program here. Initialize the ones this |
 c     | routine reads/writes (LOGFIL/NDIGIT/MSAPPS/TSAPPS) once, |
 c     | the first time this routine is ever called.              |
 c     %----------------------------------------------------------%
@@ -286,13 +280,11 @@ c
       end if
 c
 c     %-------------------------------------------------------------%
-c     | ARROWHEAD RESTART (replaces the classical implicit-         |
-c     | shift bulge-chasing entirely): given the caller's full      |
-c     | eigendecomposition of the current KEV+NP tridiagonal        |
-c     | (EIGVAL, EIGVEC), already arranged so the first KEV         |
-c     | entries/columns are the desired eigenpairs, form the        |
-c     | (KEV+1) by (KEV+1) arrowhead matrix built from those        |
-c     | KEV desired eigenpairs plus the residual attachment,        |
+c     | ARROWHEAD RESTART (replaces the implicit bulge-chasing):    |
+c     | Given the caller's full eigendecomposition of the current   |
+c     | KEV+NP tridiagonal (EIGVAL, EIGVEC), arranged so the first  |
+c     | KEV columns are the desired eigenpairs, form the (KEV+1) by |
+c     | (KEV+1) arrowhead matrix built from those eigenpairs,       |
 c     | reduce it directly to tridiagonal form via either one-way   |
 c     | Givens chasing or LAPACK's Householder reduction (HOUSE     |
 c     | selects which), and read the new H, V, and RESID off that   |
@@ -309,14 +301,12 @@ c     %------------------------------------------------------%
 c
       rnorm = dnrm2(n, resid, 1)
 c
-c     %-----------------------------------------------------------%
-c     | Directly build the ALREADY 180-degree-rotated (KEV+1) by  |
-c     | (KEV+1) arrowhead matrix DROT -- mathematically identical |
-c     | to building the natural "downward-pointing" arrowhead     |
-c     | (hub/spike attached to the LAST row/column) and then      |
-c     | rotating it 180 degrees via ROT90(.,2), but without ever  |
-c     | forming the un-rotated matrix                             |
-c     %-----------------------------------------------------------%
+c     %------------------------------------------------------------%
+c     | Directly build the ALREADY 180-degree-rotated (KEV+1) by   |
+c     | (KEV+1) arrowhead matrix DROT -- mathematically identical  |
+c     | to building the "downward-pointing" arrowhead and rotating |
+c     | it, but without ever forming the un-rotated matrix         |
+c     %------------------------------------------------------------%
 c
       call dlaset ('All', kev+1, kev+1, zero, zero, drot, kev+1)
 c
@@ -371,7 +361,7 @@ c        | KPLUSP by KEV transformation carrying V's current      |
 c        | KPLUSP-column basis directly onto the new KEV-column   |
 c        | basis (QK1 read out of DROT the same way T was read    |
 c        | out of DROT above -- DORGTR left the orthogonal factor |
-c        | in DROT itself).                                      |
+c        | in DROT itself).                                       |
 c        %--------------------------------------------------------%
 c
          do 120 j = 1, kev
@@ -448,7 +438,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of drapps |
+c     | End of drapps   |
 c     %-----------------%
 c
       end

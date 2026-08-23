@@ -579,8 +579,8 @@ c        |                                   parts of ritz values      |
 c        | workl(ncv*ncv+2*ncv+1:ncv*ncv+3*ncv) := error bounds        |
 c        | workl(ncv*ncv+3*ncv+1:2*ncv*ncv+3*ncv) := rotation matrix Q |
 c        | workl(2*ncv*ncv+3*ncv+1:3*ncv*ncv+6*ncv) := workspace       |
-c        | The final workspace is needed by subroutine dneigh  called   |
-c        | by dnaup2 . Subroutine dneigh  calls LAPACK routines for      |
+c        | The final workspace is needed by subroutine dneigh called   |
+c        | by dnaup2. Subroutine dneigh calls LAPACK routines for      |
 c        | calculating eigenvalues and the last row of the eigenvector |
 c        | matrix.                                                     |
 c        %-------------------------------------------------------------%
@@ -630,7 +630,7 @@ c
 c
 c     %------------------------------------%
 c     | Exit if there was an informational |
-c     | error within dqaup2.              |
+c     | error within dqaup2.               |
 c     %------------------------------------%
 c
       if (info .lt. 0) go to 9000
@@ -696,7 +696,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of dqaupd |
+c     | End of dqaupd   |
 c     %-----------------%
 c
       end

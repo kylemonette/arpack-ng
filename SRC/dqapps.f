@@ -18,8 +18,6 @@ c  \References). The updated Arnoldi factorization becomes:
 c
 c     A*VNEW_{k} - VNEW_{k}*HNEW_{k} = rnew_{k}*e_{k}^T.
 c
-c  HOUSE selects how the (KEV+1) by (KEV+1) nonsymmetric arrowhead
-c  matrix is reduced to upper Hessenberg form.
 c
 c\Usage:
 c  call dqapps
@@ -125,9 +123,7 @@ c
 c\Routines called:
 c     dahhgv  Local routine that reduces the nonsymmetric
 c             arrowhead matrix directly to upper Hessenberg form via
-c             a one-way Givens chasing scheme (no rotation of the
-c             arrowhead is required -- see dahhgv.f). Used when
-c             HOUSE=.FALSE.
+c             a one-way Givens chasing scheme (HOUSE=.FALSE.)
 c     dgehrd  LAPACK routine that reduces a general matrix to upper
 c             Hessenberg form via Householder reflectors. Used when
 c             HOUSE=.TRUE.
@@ -156,22 +152,18 @@ c             | c*QSCHUR(m,1:KEV)              delta        |
 c
 c     where m = KEV+NP and c = RNORM = ||RESID||, reduce it to upper
 c     Hessenberg form, and read the updated H, V, and RESID off that
-c     result. "delta" is mathematically arbitrary (it never affects
-c     the resulting HNEW, VNEW, RESID); TSCHUR(m,m) is used here
-c     purely as a convenient, well-scaled placeholder.
+c     result. "delta" is mathematically arbitrary, TSCHUR(m,m) is
+c     used purely as a convenient, well-scaled placeholder.
 c  2. When HOUSE=.FALSE., D is reduced directly (as built above) via
 c     dahhgv. When HOUSE=.TRUE., LAPACK's general-purpose
-c     Householder Hessenberg reduction (DGEHRD, exactly like MATLAB's
-c     builtin HESS) does *not* preserve the required structure if
-c     applied directly to D -- following the discussion of Reference
-c     2, D must first be rotated via the permutation Pi and
-c     transposed:
+c     Householder Hessenberg reduction (DGEHRD) does not preserve
+c     the required structure if applied directly to D. D must
+c     first be rotated and transposed:
 c
-c         Pi*D^T*Pi = | delta            c*e_m^T*Qk   |
-c                     | c*Qk^T*e_m       Pi*Sk^T*Pi   |
+c         D <- | delta            c*e_m^T*Qk   |
+c              | c*Qk^T*e_m       Pi*Sk^T*Pi   |
 c
-c     which moves the hub to position (1,1) and reverses the interior
-c     block. DGEHRD/DORGHR are applied to THIS rotated matrix (called
+c     DGEHRD/DORGHR are applied to THIS rotated matrix (called
 c     DROT below); the result is then implicitly un-rotated by simply
 c     reading its entries back out with the same index reversal.
 c  3. Unlike DNAPPS, KEV is never adjusted inside this routine to
@@ -254,8 +246,7 @@ c     %-----------------------%
 c
 c     %----------------------------------------------------------%
 c     | debug.h/stat.h COMMON block variables aren't set up by   |
-c     | any ARPACK driver program here (this routine is called   |
-c     | directly from a MEX gateway) -- initialize the ones this |
+c     | any ARPACK driver program here. Initialize the ones this |
 c     | routine reads/writes (LOGFIL/NDIGIT/MNAPPS/TNAPPS) once, |
 c     | the first time this routine is ever called.              |
 c     %----------------------------------------------------------%
@@ -315,8 +306,7 @@ c
 c
 c        %---------------------------------------------------------------%
 c        | Build the ALREADY 180-degree-rotated (and transposed) (KEV+1) |
-c        | by (KEV+1) arrowhead matrix DROT (hub at (1,1), border along  |
-c        | row/column 1, interior block = Pi*Sk^T*Pi) -- mathematically  |
+c        | by (KEV+1) arrowhead matrix DROT. This is mathematically      |
 c        | identical to building the natural downward-pointing arrowhead |
 c        | and then applying the rotation of \Remarks (2), but without   |
 c        | ever forming that un-rotated matrix.                          |
@@ -362,11 +352,10 @@ c
 c        %--------------------------------------------------------------%
 c        | Read the new leading KEV by KEV upper Hessenberg H, and      |
 c        | BETAK (the new residual coupling), directly out of HBUF by   |
-c        | un-rotating (the SAME index reversal used to build DROT,     |
-c        | since Pi is an involution) -- entries strictly below H's own |
-c        | subdiagonal are explicitly zeroed rather than read out of    |
-c        | HBUF, since the corresponding HBUF locations there hold      |
-c        | leftover Householder-vector data, not Hessenberg zeros.      |
+c        | un-rotating. Entries strictly below H's subdiagonal are      |
+c        | explicitly zeroed rather than read out of HBUF, since the    |
+c        | corresponding HBUF locations there hold leftover             |
+c        | Householder-vector data, not Hessenberg zeros.               |
 c        %--------------------------------------------------------------%
 c
          call dlaset ('All', kev, kev, zero, zero, h, ldh)
@@ -400,7 +389,7 @@ c
 c        %--------------------------------------------------------%
 c        | Build the natural (downward-pointing) nonsymmetric     |
 c        | arrowhead matrix D directly -- no rotation is needed   |
-c        | since dahhgv operates on this form as-is.        |
+c        | since dahhgv operates on this form as-is.              |
 c        %--------------------------------------------------------%
 c
          call dlaset ('All', kev+1, kev+1, zero, zero, d, kev+1)
@@ -422,22 +411,21 @@ c
 c
 c        %--------------------------------------------------------%
 c        | Read the new leading KEV by KEV upper Hessenberg H,    |
-c        | and BETAK (the new residual coupling), directly out of |
-c        | the reduced result.                                    |
+c        | and BETAK directly out of the reduced result.          |
 c        %--------------------------------------------------------%
 c
          call dlacpy ('All', kev, kev, d, kev+1, h, ldh)
 c
          betak = d(kev+1,kev)
 c
-c        %--------------------------------------------------------%
-c        | Build QFINAL = QSCHUR(:,1:kev) * QARROW(1:kev,1:kev),  |
-c        | the KPLUSP by KEV transformation carrying V's current  |
-c        | KPLUSP-column basis directly onto the new KEV-column   |
-c        | basis. Unlike the House variant (and the symmetric     |
-c        | routines), QARROW is already in the natural, unreversed|
-c        | order, so this is a plain matrix product               |
-c        %--------------------------------------------------------%
+c        %---------------------------------------------------------%
+c        | Build QFINAL = QSCHUR(:,1:kev) * QARROW(1:kev,1:kev),   |
+c        | the KPLUSP by KEV transformation carrying V's current   |
+c        | KPLUSP-column basis directly onto the new KEV-column    |
+c        | basis. Unlike the House variant and the symmetric       |
+c        | routines, QARROW is already in the natural, unreversed  |
+c        | order, so this is a plain matrix product                |
+c        %---------------------------------------------------------%
 c
          call dgemm ('N', 'N', kplusp, kev, kev, one, qschur, ldqschur,
      &               qarrow, kev+1, zero, qfinal, kplusp)
@@ -457,8 +445,7 @@ c
 c     %--------------------------------------------------------%
 c     | Update the residual vector. As shown in Reference 2,   |
 c     | RESID_new is exactly BETAK times the ORIGINAL residual |
-c     | direction -- i.e. simply rescaled, never re-oriented:  |
-c     |    resid <- (betak / rnorm) * resid                    |
+c     | direction:   resid <- (betak / rnorm) * resid          |
 c     %--------------------------------------------------------%
 c
       if (rnorm .gt. zero) then
@@ -472,7 +459,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of dqapps |
+c     | End of dqapps   |
 c     %-----------------%
 c
       end
