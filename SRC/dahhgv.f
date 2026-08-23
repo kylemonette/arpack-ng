@@ -1,22 +1,19 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: narrowgivens
+c\Name: dahhgv
 c
 c\Description:
-c  Reduces an M by M nonsymmetric arrowhead matrix D (pointing
-c  southeast: hub D(M,M), spike along the last row/column, quasi-
-c  upper-triangular leading block D(1:M-1,1:M-1)) to upper Hessenberg
-c  form using Givens rotations in a one-way chasing scheme in the
-c  style of Zha (see reference 2 below).
+c  Reduces an M by M nonsymmetric arrowhead matrix D pointing
+c  southeast to upper Hessenberg form using Givens rotations
+c  in a one-way chasing scheme in the style of Zha
+c  (see reference 2 below).
 c
-c  Unlike ARROWGIVENS (the symmetric routine, whose input must be
-c  pre-rotated to put the hub at (1,1)), no such rotation of D is
-c  needed here: the spike is chased directly out of its natural
-c  "downward-pointing" form.
+c  Unlike dahtgv (the symmetric routine), whose input must be
+c  pre-rotated, no such rotation of D is needed here.
 c
 c\Usage:
-c  call narrowgivens
+c  call dahhgv
 c     ( M, D, LDD, Q, LDQ )
 c
 c\Arguments
@@ -27,10 +24,7 @@ c  D       Double precision M by M array.  (INPUT/OUTPUT)
 c          INPUT: D contains the nonsymmetric arrowhead matrix
 c              D = | S(1:k,1:k)      c*Q(m,1:k)' |,    k = M-1,
 c                  | c*Q(m,1:k)         delta    |
-c          where S is (real-Schur) quasi-upper-triangular. Only the
-c          leading K by K block, the spike D(M,1:K)/D(1:K,M), and the
-c          hub D(M,M) are read; all other entries are assumed zero and
-c          are never referenced.
+c          where S is (real-Schur) quasi-upper-triangular.
 c          OUTPUT: D contains the resulting upper Hessenberg matrix,
 c          i.e. Hk = Q'*D_old*Q, with leading K by K block Hk upper
 c          Hessenberg, D(K,K+1) = D(K+1,K) = a scalar, and
@@ -43,8 +37,7 @@ c
 c  Q       Double precision M by M array.  (OUTPUT)
 c          On output, Q contains the accumulated orthogonal
 c          transformation such that D_new = Q' * D_old * Q. Q is
-c          initialized to the identity internally; the caller does
-c          not need to (and should not) pre-initialize it. Because no
+c          initialized to the identity internally.  Because no
 c          rotation of D is needed, Q's leading K by K block is
 c          exactly Qk (the transform used to obtain Hk = Qk'*S*Qk),
 c          and Q's last row/column reduce to e_{K+1}.
@@ -79,7 +72,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine narrowgivens
+      subroutine dahhgv
      &   ( m, d, ldd, q, ldq )
 c
       integer    ldd, ldq, m
@@ -90,11 +83,11 @@ c
      &           zero, one, tol
       parameter (zero = 0.0D+0, one = 1.0D+0, tol = 1.0D-20)
 c
-      integer    c, cp1, i, r
+      integer    c, cp1, r
       Double precision
-     &           cs, sn, rr, t1, t2
+     &           cs, sn, rr
 c
-      external   dlaset, dlartg
+      external   dlaset, dlartg, drot
       intrinsic  abs
 c
 c     %--------------------------------%
@@ -134,12 +127,7 @@ c           | in columns/rows c,c+1.  This drives D(r,c) to zero and |
 c           | D(r,c+1) to rr.                                        |
 c           %--------------------------------------------------------%
 c
-            do 10 i = 1, r
-               t1 =  sn*d(i,c) - cs*d(i,cp1)
-               t2 =  cs*d(i,c) + sn*d(i,cp1)
-               d(i,c) = t1
-               d(i,cp1) = t2
-   10       continue
+            call drot (r, d(1,c), 1, d(1,cp1), 1, sn, -cs)
 c
 c           %--------------------------------------------------------%
 c           | Row update (full column range 1:m): D(c:c+1,1:m) <- G  |
@@ -147,31 +135,21 @@ c           | * D(c:c+1,1:m).  The full range is required since the  |
 c           | border row/column may still have the spike             |
 c           %--------------------------------------------------------%
 c
-            do 20 i = 1, m
-               t1 =  sn*d(c,i) - cs*d(cp1,i)
-               t2 =  cs*d(c,i) + sn*d(cp1,i)
-               d(c,i) = t1
-               d(cp1,i) = t2
-   20       continue
+            call drot (m, d(c,1), ldd, d(cp1,1), ldd, sn, -cs)
 c
 c           %--------------------------------------------------------%
 c           | Accumulate: Q(:,c:c+1) <- Q(:,c:c+1) * G'              |
 c           %--------------------------------------------------------%
 c
-            do 30 i = 1, m
-               t1 =  sn*q(i,c) - cs*q(i,cp1)
-               t2 =  cs*q(i,c) + sn*q(i,cp1)
-               q(i,c) = t1
-               q(i,cp1) = t2
-   30       continue
+            call drot (m, q(1,c), 1, q(1,cp1), 1, sn, -cs)
 c
    90    continue
   100 continue
 c
       return
 c
-c     %-----------------------%
-c     | End of narrowgivens   |
-c     %-----------------------%
+c     %-----------------%
+c     | End of dahhgv   |
+c     %-----------------%
 c
       end

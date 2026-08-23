@@ -1,6 +1,6 @@
 c\BeginDoc
 c
-c\Name: mydnaupd
+c\Name: dqaupd
 c
 c\Description:
 c  Reverse communication interface for the Implicitly Restarted Arnoldi
@@ -57,9 +57,9 @@ c        the accuracy requirements for the eigenvalue
 c        approximations.
 c
 c\Usage:
-c  call mydnaupd
+c  call dqaupd
 c     ( IDO, BMAT, N, WHICH, NEV, TOL, RESID, NCV, V, LDV, IPARAM,
-c       IPNTR, WORKD, WORKL, LWORKL, INFO )
+c       IPNTR, WORKD, WORKL, LWORKL, INFO, HOUSE )
 c
 c\Arguments
 c  IDO     Integer.  (INPUT/OUTPUT)
@@ -279,6 +279,12 @@ c          = -9999: Could not build an Arnoldi factorization.
 c                   IPARAM(5) returns the size of the current Arnoldi
 c                   factorization.
 c
+c  HOUSE   Logical.  (INPUT)
+c          Passed straight through to dqaup2 (and from there to
+c          dqapps) at each shift-application step, selecting
+c          Householder (.TRUE.) vs. Givens (.FALSE.) reduction of the
+c          arrowhead matrix.
+c
 c\Remarks
 c  1. The computed Ritz values are approximate eigenvalues of OP. The
 c     selection of WHICH should be made with this in mind when
@@ -376,10 +382,10 @@ c     Real Matrices", Linear Algebra and its Applications, vol 88/89,
 c     pp 575-595, (1987).
 c
 c\Routines called:
-c     mydnaup2 Local fork of dnaup2 (ARPACK routine that implements the
+c     dqaup2 Local fork of dnaup2 (ARPACK routine that implements the
 c             Implicitly Restarted Arnoldi Iteration) that additionally
 c             computes the real Schur decomposition of the current
-c             KEV+NP Hessenberg matrix and passes it into mydnapps.
+c             KEV+NP Hessenberg matrix and passes it into dqapps.
 c     ivout   ARPACK utility routine that prints integers.
 c     arscnd  ARPACK utility routine for timing.
 c     dvout    ARPACK utility routine that prints vectors.
@@ -397,7 +403,7 @@ c\Revision history:
 c     12/16/93: Version '1.1'
 c
 c\SCCS Information: @(#)
-c FILE: mynaupd.F   SID: 2.8   DATE OF SID: 04/10/01   RELEASE: 2
+c FILE: dqaupd.F   SID: 2.8   DATE OF SID: 04/10/01   RELEASE: 2
 c
 c\Remarks
 c
@@ -405,9 +411,9 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine mydnaupd
+      subroutine dqaupd
      &   ( ido, bmat, n, which, nev, tol, resid, ncv, v, ldv, iparam,
-     &     ipntr, workd, workl, lworkl, info )
+     &     ipntr, workd, workl, lworkl, info, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -421,6 +427,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       character  bmat*1, which*2
+      logical    house
       integer    ido, info, ldv, lworkl, n, ncv, nev
       Double precision
      &           tol
@@ -456,7 +463,7 @@ c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
-      external   mydnaup2 , dvout , ivout, arscnd, dstatn
+      external   dqaup2 , dvout , ivout, arscnd, dstatn
 c
 c     %--------------------%
 c     | External Functions |
@@ -572,8 +579,8 @@ c        |                                   parts of ritz values      |
 c        | workl(ncv*ncv+2*ncv+1:ncv*ncv+3*ncv) := error bounds        |
 c        | workl(ncv*ncv+3*ncv+1:2*ncv*ncv+3*ncv) := rotation matrix Q |
 c        | workl(2*ncv*ncv+3*ncv+1:3*ncv*ncv+6*ncv) := workspace       |
-c        | The final workspace is needed by subroutine dneigh  called   |
-c        | by dnaup2 . Subroutine dneigh  calls LAPACK routines for      |
+c        | The final workspace is needed by subroutine dneigh called   |
+c        | by dnaup2. Subroutine dneigh calls LAPACK routines for      |
 c        | calculating eigenvalues and the last row of the eigenvector |
 c        | matrix.                                                     |
 c        %-------------------------------------------------------------%
@@ -601,11 +608,11 @@ c     %-------------------------------------------------------%
 c     | Carry out the Implicitly restarted Arnoldi Iteration. |
 c     %-------------------------------------------------------%
 c
-      call mydnaup2
+      call dqaup2
      &   ( ido, bmat, n, which, nev0, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, workl(ih), ldh, workl(ritzr),
      &     workl(ritzi), workl(bounds), workl(iq), ldq, workl(iw),
-     &     ipntr, workd, info )
+     &     ipntr, workd, info, house )
 c
 c     %--------------------------------------------------%
 c     | ido .ne. 99 implies use of reverse communication |
@@ -623,7 +630,7 @@ c
 c
 c     %------------------------------------%
 c     | Exit if there was an informational |
-c     | error within mydnaup2.              |
+c     | error within dqaup2.               |
 c     %------------------------------------%
 c
       if (info .lt. 0) go to 9000
@@ -689,7 +696,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of mydnaupd |
+c     | End of dqaupd   |
 c     %-----------------%
 c
       end

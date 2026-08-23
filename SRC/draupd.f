@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: mydsaupd
+c\Name: draupd
 c
 c\Description:
 c
@@ -60,9 +60,9 @@ c        the accuracy requirements for the eigenvalue
 c        approximations.
 c
 c\Usage:
-c  call mydsaupd
+c  call draupd
 c     ( IDO, BMAT, N, WHICH, NEV, TOL, RESID, NCV, V, LDV, IPARAM,
-c       IPNTR, WORKD, WORKL, LWORKL, INFO )
+c       IPNTR, WORKD, WORKL, LWORKL, INFO, HOUSE )
 c
 c\Arguments
 c  IDO     Integer.  (INPUT/OUTPUT)
@@ -275,6 +275,12 @@ c                   IPARAM(5) returns the size of the current Arnoldi
 c                   factorization. The user is advised to check that
 c                   enough workspace and array storage has been allocated.
 c
+c  HOUSE   Logical.  (INPUT)
+c          Passed straight through to draup2 (and from there to
+c          drapps) at each shift-application step, selecting
+c          Householder (.TRUE.) vs. Givens (.FALSE.) tridiagonalization
+c          of the arrowhead matrix.
+c
 c
 c\Remarks
 c  1. The converged Ritz values are always returned in ascending
@@ -375,10 +381,10 @@ c  8. R.B. Lehoucq, D.C. Sorensen, "Implementation of Some Spectral
 c     Transformations in a k-Step Arnoldi Method". In Preparation.
 c
 c\Routines called:
-c     mydsaup2 Local fork of dsaup2 (ARPACK routine that implements the
+c     draup2 Local fork of dsaup2 (ARPACK routine that implements the
 c             Implicitly Restarted Arnoldi Iteration) that additionally
 c             computes the full tridiagonal eigendecomposition and
-c             passes it into mydsapps.
+c             passes it into drapps (called here with HOUSE=.FALSE.).
 c     dstats   ARPACK routine that initialize timing and other statistics
 c             variables.
 c     ivout   ARPACK utility routine that prints integers.
@@ -398,7 +404,7 @@ c\Revision history:
 c     12/15/93: Version ' 2.4'
 c
 c\SCCS Information: @(#)
-c FILE: mysaupd.F   SID: 2.8   DATE OF SID: 04/10/01   RELEASE: 2
+c FILE: draupd.F   SID: 2.8   DATE OF SID: 04/10/01   RELEASE: 2
 c
 c\Remarks
 c     1. None
@@ -407,9 +413,9 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine mydsaupd
+      subroutine draupd
      &   ( ido, bmat, n, which, nev, tol, resid, ncv, v, ldv, iparam,
-     &     ipntr, workd, workl, lworkl, info )
+     &     ipntr, workd, workl, lworkl, info, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -423,6 +429,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       character  bmat*1, which*2
+      logical    house
       integer    ido, info, ldv, lworkl, n, ncv, nev
       Double precision
      &           tol
@@ -458,7 +465,7 @@ c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
-      external   mydsaup2 ,  dvout , ivout, arscnd, dstats
+      external   draup2 ,  dvout , ivout, arscnd, dstats
 c
 c     %--------------------%
 c     | External Functions |
@@ -601,11 +608,11 @@ c     %-------------------------------------------------------%
 c     | Carry out the Implicitly restarted Lanczos Iteration. |
 c     %-------------------------------------------------------%
 c
-      call mydsaup2
+      call draup2
      &   ( ido, bmat, n, which, nev0, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, workl(ih), ldh, workl(ritz),
      &     workl(bounds), workl(iq), ldq, workl(iw), ipntr, workd,
-     &     info )
+     &     info, house )
 c
 c     %--------------------------------------------------%
 c     | ido .ne. 99 implies use of reverse communication |
@@ -686,7 +693,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of mydsaupd |
+c     | End of draupd |
 c     %-----------------%
 c
       end

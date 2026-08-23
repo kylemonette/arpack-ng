@@ -1,25 +1,26 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: mydsaup2_house
+c\Name: draup2
 c
 c\Description:
 c  Intermediate level interface called by dsaupd.
 c
-c  This is a local fork of dsaup2 (arguments unchanged). Internally, it
-c  computes the full eigendecomposition of the current KEV+NP
-c  tridiagonal matrix H (via dsteqr) ONCE per iteration, right after
-c  the Lanczos expansion: the Ritz values and error bounds used for
-c  convergence testing are read directly off it (replacing dsaup2's
-c  dseigt call), and the same decomposition is then reused at shift-
-c  application time by mydsapps_house (a fork of dsapps that accepts it
-c  as a new input) instead of calling dsapps directly with a shift list.
+c  This is a local fork of dsaup2. Internally, it computes the full
+c  eigendecomposition of the current KEV+NP tridiagonal matrix H (via
+c  dsteqr) ONCE per iteration, right after the Lanczos expansion: the
+c  Ritz values and error bounds used for convergence testing are read
+c  directly off it (replacing dsaup2's dseigt call), and the same
+c  decomposition is then reused at shift-application time by drapps
+c  (a fork of dsapps that accepts it as a new input, and itself takes
+c  HOUSE to select Householder vs. Givens internally) instead of
+c  calling dsapps directly with a shift list.
 c
 c\Usage:
-c  call mydsaup2_house
+c  call draup2
 c     ( IDO, BMAT, N, WHICH, NEV, NP, TOL, RESID, MODE, IUPD,
 c       ISHIFT, MXITER, V, LDV, H, LDH, RITZ, BOUNDS, Q, LDQ, WORKL,
-c       IPNTR, WORKD, INFO )
+c       IPNTR, WORKD, INFO, HOUSE )
 c
 c\Arguments
 c
@@ -121,6 +122,12 @@ c          =    -9: Starting vector is zero.
 c          = -9999: Could not build an Lanczos factorization.
 c                   Size that was built in returned in NP.
 c
+c  HOUSE   Logical.  (INPUT)
+c          Passed straight through to drapps at each shift-
+c          application step, selecting Householder (.TRUE.) vs.
+c          Givens (.FALSE.) tridiagonalization of the arrowhead
+c          matrix -- see drapps's own \Arguments for details.
+c
 c\EndDoc
 c
 c-----------------------------------------------------------------------
@@ -187,10 +194,10 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine mydsaup2_house
+      subroutine draup2
      &   ( ido, bmat, n, which, nev, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, h, ldh, ritz, bounds,
-     &     q, ldq, workl, ipntr, workd, info )
+     &     q, ldq, workl, ipntr, workd, info, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -204,6 +211,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       character  bmat*1, which*2
+      logical    house
       integer    ido, info, ishift, iupd, ldh, ldq, ldv, mxiter,
      &           n, mode, nev, np
       Double precision
@@ -247,12 +255,13 @@ c     | current KEV+NP tridiagonal H. Computed ONCE per iteration    |
 c     | (right after the Lanczos expansion, replacing the dseigt     |
 c     | call -- the Ritz values and error bounds are read directly   |
 c     | off this decomposition) and reused at shift-application      |
-c     | time by mydsapps_house. ARROWEIGVAL/ARROWEIGVEC carry data   |
-c     | from the computation site to the shift site, across the      |
-c     | possible ISHIFT=0 reverse-communication exit in between, so  |
-c     | they are SAVEd allocatables (re-sized if LDH ever changes    |
-c     | between problems). ARROWSUBD/ARROWWORK are scratch used only |
-c     | at the computation site itself.                              |
+c     | time by drapps (HOUSE selects Householder vs. Givens).       |
+c     | ARROWEIGVAL/ARROWEIGVEC carry data from the computation site |
+c     | to the shift site, across the possible ISHIFT=0 reverse-     |
+c     | communication exit in between, so they are SAVEd allocatables|
+c     | (re-sized if LDH ever changes between problems).             |
+c     | ARROWSUBD/ARROWWORK are scratch used only at the computation |
+c     | site itself.                                                 |
 c     %--------------------------------------------------------------%
 c
       integer    arrowierr
@@ -265,9 +274,9 @@ c     %--------------------------------------------------------------%
 c     | Local workspace for selecting/reordering the KEV+NP          |
 c     | eigenpairs above so the NEV "desired" ones (per the fresh    |
 c     | ARROWEIGVAL, sorted directly by the user's WHICH preference) |
-c     | end up in the first NEV positions. mydsapps_house requires   |
-c     | its EIGVAL/EIGVEC inputs pre-sorted this way; it does not do |
-c     | any selection itself.                                        |
+c     | end up in the first NEV positions. drapps requires its       |
+c     | EIGVAL/EIGVEC inputs pre-sorted this way; it does not do any |
+c     | selection itself.                                            |
 c     %--------------------------------------------------------------%
 c
       integer    arrowkeepidx(ldh), kevd2
@@ -280,8 +289,7 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dgetv0, dsaitr, dscal, dsconv, dsgets,
-     &           mydsapps_house, dsortr, dvout, ivout, arscnd, dswap,
-     &           dsteqr
+     &           drapps, dsortr, dvout, ivout, arscnd, dswap, dsteqr
 c
 c     %--------------------%
 c     | External Functions |
@@ -459,7 +467,7 @@ c
          end if
 c
 c        %------------------------------------------------------------%
-c        | Compute NP additional steps of the Lanczos factorization. |
+c        | Compute NP additional steps of the Lanczos factorization.  |
 c        %------------------------------------------------------------%
 c
          ido = 0
@@ -835,7 +843,7 @@ c        | then records, for each of those NEV slots, which          |
 c        | original column of ARROWEIGVEC it came from. DSORTR has   |
 c        | no 'BE' criterion, so that case is handled as in dsgets:  |
 c        | sort algebraically increasing, then swap the low end      |
-c        | next to the high end.                                    |
+c        | next to the high end.                                     |
 c        %-----------------------------------------------------------%
 c
          do 1130 j = 1, kplusp
@@ -874,12 +882,14 @@ c        %---------------------------------------------------------%
 c        | Apply the NP0 implicit shifts by QR bulge chasing.      |
 c        | Each shift is applied to the entire tridiagonal matrix. |
 c        | The first 2*N locations of WORKD are used as workspace. |
-c        | After mydsapps_house is done, we have a Lanczos         |
-c        | factorization of length NEV.                            |
+c        | HOUSE is passed straight through to drapps, which       |
+c        | itself selects Householder vs. Givens internally. After |
+c        | it is done, we have a Lanczos factorization of length   |
+c        | NEV.                                                    |
 c        %---------------------------------------------------------%
 c
-         call mydsapps_house (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
-     &        arrowsortval, arrowsortvec, ldh, workd)
+         call drapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
+     &        arrowsortval, arrowsortvec, ldh, workd, house)
 c
 c        %---------------------------------------------%
 c        | Compute the B-norm of the updated residual. |
@@ -961,8 +971,8 @@ c
  9000 continue
       return
 c
-c     %-----------------------%
-c     | End of mydsaup2_house |
-c     %-----------------------%
+c     %-----------------%
+c     | End of draup2   |
+c     %-----------------%
 c
       end

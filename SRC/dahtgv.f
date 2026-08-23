@@ -1,15 +1,15 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: arrowgivens
+c\Name: dahtgv
 c
 c\Description:
 c  Tridiagonalizes an M by M symmetric "upward-pointing" arrowhead
-c  matrix A (hub at position (1,1), spike along row/column 1) using
-c  the one-way Givens chasing scheme of Zha (see reference 2 below).
+c  matrix A using the one-way Givens chasing scheme of
+c  Zha (see reference 2 below).
 c
 c\Usage:
-c  call arrowgivens
+c  call dahtgv
 c     ( M, A, LDA, QMAT, LDQ )
 c
 c\Arguments
@@ -23,9 +23,6 @@ c              |a1 b2 b3 b4|
 c              |b2 a2      |
 c              |b3    a3   |
 c              |b4       a4|
-c          Only the hub (1,1), the spike A(2:M,1)/A(1,2:M), and the
-c          diagonal A(2:M,2:M) are read; all other entries are assumed
-c          zero and are never referenced.
 c          OUTPUT: A contains the resulting symmetric tridiagonal
 c          matrix - subdiagonal in column 1 starting at A(2,1), main
 c          diagonal in column 2.
@@ -37,8 +34,7 @@ c
 c  QMAT    Double precision M by M array.  (OUTPUT)
 c          On output, QMAT contains the accumulated orthogonal
 c          transformation such that A_new = QMAT' * A_old * QMAT.
-c          QMAT is initialized to the identity internally; the caller
-c          does not need to (and should not) pre-initialize it.
+c          QMAT is initialized to the identity internally.
 c
 c  LDQ     Integer.  (INPUT)
 c          Leading dimension of QMAT exactly as declared in the
@@ -69,7 +65,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine arrowgivens
+      subroutine dahtgv
      &   ( m, a, lda, qmat, ldq )
 c
       integer    lda, ldq, m
@@ -84,7 +80,7 @@ c
       Double precision
      &           cs, sn, rr, t1, t2
 c
-      external   dlaset, dlartg
+      external   dlaset, dlartg, drot
 c
 c     %---------------------------------%
 c     | Initialize QMAT to the identity |
@@ -145,12 +141,7 @@ c        %----------------------%
 c        | Accumulate into Q.  |
 c        %----------------------%
 c
-         do 40 r = 1, m
-            t1          = qmat(r,i)*cs + qmat(r,i+1)*sn
-            t2          = -qmat(r,i)*sn + qmat(r,i+1)*cs
-            qmat(r,i)   = t1
-            qmat(r,i+1) = t2
-   40    continue
+         call drot (m, qmat(1,i), 1, qmat(1,i+1), 1, cs, sn)
 c
 c        %--------------------------------%
 c        | Chase the bulge created above. |
@@ -184,12 +175,7 @@ c
                a(ii,r+1) = t2
    60       continue
 c
-            do 70 ii = 1, m
-               t1           = qmat(ii,r)*cs + qmat(ii,r+1)*sn
-               t2           = -qmat(ii,r)*sn + qmat(ii,r+1)*cs
-               qmat(ii,r)   = t1
-               qmat(ii,r+1) = t2
-   70       continue
+            call drot (m, qmat(1,r), 1, qmat(1,r+1), 1, cs, sn)
 c
    90    continue
 c
@@ -197,8 +183,8 @@ c
 c
       return
 c
-c     %----------------------%
-c     | End of arrowgivens   |
-c     %----------------------%
+c     %-----------------%
+c     | End of dahtgv   |
+c     %-----------------%
 c
       end
