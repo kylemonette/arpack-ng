@@ -204,6 +204,9 @@ c     | Local Scalars |
 c     %---------------%
 c
       integer    i, j, p, kplusp, msglvl, houseinfo, lwork
+      logical    initd
+      save       initd
+      data       initd /.false./
       Double precision
      &           rnorm, betak, qwork(1)
       Double precision
@@ -230,6 +233,22 @@ c
 c     %-----------------------%
 c     | Executable Statements |
 c     %-----------------------%
+c
+c     %----------------------------------------------------------%
+c     | debug.h/stat.h COMMON block variables aren't set up by   |
+c     | any ARPACK driver program here (this routine is called   |
+c     | directly from a MEX gateway) -- initialize the ones this |
+c     | routine reads/writes (LOGFIL/NDIGIT/MSAPPS/TSAPPS) once, |
+c     | the first time this routine is ever called.              |
+c     %----------------------------------------------------------%
+c
+      if (.not. initd) then
+         logfil = 6
+         ndigit = -3
+         msapps = 0
+         tsapps = 0.0D+0
+         initd = .true.
+      end if
 c
 c     %-------------------------------%
 c     | Initialize timing statistics  |
