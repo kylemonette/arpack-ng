@@ -213,7 +213,7 @@ c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      integer    i, j, p, kplusp, msglvl, houseinfo, lwork
+      integer    i, j, kplusp, msglvl, houseinfo, lwork
       logical    initd
       save       initd
       data       initd /.false./
@@ -223,7 +223,7 @@ c
      &           d(kev+1,kev+1), qarrow(kev+1,kev+1),
      &           drot(kev+1,kev+1), hbuf(kev+1,kev+1), tau(kev),
      &           qk1(kev,kev), qfinal(kev+np,kev)
-      Double precision, allocatable :: housework(:), vnew(:,:)
+      Double precision, allocatable, save :: housework(:), vnew(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -291,7 +291,10 @@ c
          call dorghr (kev+1, 1, kev+1, drot, kev+1, tau, qwork, -1,
      &                houseinfo)
          lwork = max(lwork, int(qwork(1)), 8*(kev+1))
-         allocate (housework(lwork))
+         if (allocated(housework)) then
+            if (size(housework) .lt. lwork) deallocate (housework)
+         end if
+         if (.not. allocated(housework)) allocate (housework(lwork))
       end if
 c
 c     %------------------------------------------------------%
@@ -347,8 +350,6 @@ c
          call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
      &                housework, lwork, houseinfo)
 c
-         deallocate (housework)
-c
 c        %--------------------------------------------------------------%
 c        | Read the new leading KEV by KEV upper Hessenberg H, and      |
 c        | BETAK (the new residual coupling), directly out of HBUF by   |
@@ -376,9 +377,7 @@ c        | out of HBUF above (both need the same index reversal).       |
 c        %--------------------------------------------------------------%
 c
          do 130 j = 1, kev
-            do 120 p = 1, kev
-               qk1(p,j) = drot(kev+2-p,kev+2-j)
-  120       continue
+            call dcopy (kev, drot(2,kev+2-j), -1, qk1(1,j), 1)
   130    continue
 c
          call dgemm ('N', 'N', kplusp, kev, kev, one, qschur, ldqschur,
@@ -436,11 +435,14 @@ c     %--------------------------------------------------------%
 c     | Update V: V(:,1:kev) <- V(:,1:kplusp) * QFINAL.        |
 c     %--------------------------------------------------------%
 c
-      allocate (vnew(n,kev))
+      if (allocated(vnew)) then
+         if (size(vnew,1) .ne. n .or. size(vnew,2) .lt. kev)
+     &      deallocate (vnew)
+      end if
+      if (.not. allocated(vnew)) allocate (vnew(n,kev))
       call dgemm ('N', 'N', n, kev, kplusp, one, v, ldv, qfinal,
      &            kplusp, zero, vnew, n)
       call dlacpy ('All', n, kev, vnew, n, v, ldv)
-      deallocate (vnew)
 c
 c     %--------------------------------------------------------%
 c     | Update the residual vector. As shown in Reference 2,   |

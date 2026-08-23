@@ -198,7 +198,7 @@ c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      integer    i, j, p, kplusp, msglvl, houseinfo, lwork
+      integer    i, j, kplusp, msglvl, houseinfo, lwork
       logical    initd
       save       initd
       data       initd /.false./
@@ -208,7 +208,7 @@ c
      &           drot(kev+1,kev+1), qrot(kev+1,kev+1), qk1(kev,kev),
      &           dvec(kev+1), evec(kev), tau(kev),
      &           qfinal(kev+np,kev)
-      Double precision, allocatable :: housework(:), vnew(:,:)
+      Double precision, allocatable, save :: housework(:), vnew(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -276,7 +276,10 @@ c
          call dorgtr ('L', kev+1, drot, kev+1, tau, qwork, -1,
      &                houseinfo)
          lwork = max(lwork, int(qwork(1)), 5*(kev+1))
-         allocate (housework(lwork))
+         if (allocated(housework)) then
+            if (size(housework) .lt. lwork) deallocate (housework)
+         end if
+         if (.not. allocated(housework)) allocate (housework(lwork))
       end if
 c
 c     %-------------------------------------------------------------%
@@ -334,8 +337,6 @@ c
          call dorgtr ('L', kev+1, drot, kev+1, tau,
      &                housework, lwork, houseinfo)
 c
-         deallocate (housework)
-c
 c        %--------------------------------------------------------%
 c        | Read the new leading KEV by KEV tridiagonal H, and     |
 c        | BETAK (the new residual coupling), directly out of the |
@@ -365,9 +366,7 @@ c        | in DROT itself).                                       |
 c        %--------------------------------------------------------%
 c
          do 120 j = 1, kev
-            do 110 p = 1, kev
-               qk1(p,j) = drot(kev+2-p,kev+2-j)
-  110       continue
+            call dcopy (kev, drot(2,kev+2-j), -1, qk1(1,j), 1)
   120    continue
 c
       else
@@ -402,9 +401,7 @@ c        | out of DROT above).                                    |
 c        %--------------------------------------------------------%
 c
          do 121 j = 1, kev
-            do 111 p = 1, kev
-               qk1(p,j) = qrot(kev+2-p,kev+2-j)
-  111       continue
+            call dcopy (kev, qrot(2,kev+2-j), -1, qk1(1,j), 1)
   121    continue
 c
       end if
@@ -416,11 +413,14 @@ c     %-------------------------------------------------%
 c     | Update V: V(:,1:kev) <- V(:,1:kplusp) * QFINAL. |
 c     %-------------------------------------------------%
 c
-      allocate (vnew(n,kev))
+      if (allocated(vnew)) then
+         if (size(vnew,1) .ne. n .or. size(vnew,2) .lt. kev)
+     &      deallocate (vnew)
+      end if
+      if (.not. allocated(vnew)) allocate (vnew(n,kev))
       call dgemm ('N', 'N', n, kev, kplusp, one, v, ldv, qfinal,
      &            kplusp, zero, vnew, n)
       call dlacpy ('All', n, kev, vnew, n, v, ldv)
-      deallocate (vnew)
 c
 c     %--------------------------------------------------------%
 c     | Update the residual vector. RESID_new is BETAK times.  |

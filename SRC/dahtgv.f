@@ -80,7 +80,7 @@ c
       Double precision
      &           cs, sn, rr, t1, t2
 c
-      external   dlaset, dlartg
+      external   dlaset, dlartg, drot
 c
 c     %---------------------------------%
 c     | Initialize QMAT to the identity |
@@ -141,12 +141,7 @@ c        %----------------------%
 c        | Accumulate into Q.  |
 c        %----------------------%
 c
-         do 40 r = 1, m
-            t1          = qmat(r,i)*cs + qmat(r,i+1)*sn
-            t2          = -qmat(r,i)*sn + qmat(r,i+1)*cs
-            qmat(r,i)   = t1
-            qmat(r,i+1) = t2
-   40    continue
+         call drot (m, qmat(1,i), 1, qmat(1,i+1), 1, cs, sn)
 c
 c        %--------------------------------%
 c        | Chase the bulge created above. |
@@ -180,12 +175,7 @@ c
                a(ii,r+1) = t2
    60       continue
 c
-            do 70 ii = 1, m
-               t1           = qmat(ii,r)*cs + qmat(ii,r+1)*sn
-               t2           = -qmat(ii,r)*sn + qmat(ii,r+1)*cs
-               qmat(ii,r)   = t1
-               qmat(ii,r+1) = t2
-   70       continue
+            call drot (m, qmat(1,r), 1, qmat(1,r+1), 1, cs, sn)
 c
    90    continue
 c

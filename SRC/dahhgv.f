@@ -83,11 +83,11 @@ c
      &           zero, one, tol
       parameter (zero = 0.0D+0, one = 1.0D+0, tol = 1.0D-20)
 c
-      integer    c, cp1, i, r
+      integer    c, cp1, r
       Double precision
-     &           cs, sn, rr, t1, t2
+     &           cs, sn, rr
 c
-      external   dlaset, dlartg
+      external   dlaset, dlartg, drot
       intrinsic  abs
 c
 c     %--------------------------------%
@@ -127,12 +127,7 @@ c           | in columns/rows c,c+1.  This drives D(r,c) to zero and |
 c           | D(r,c+1) to rr.                                        |
 c           %--------------------------------------------------------%
 c
-            do 10 i = 1, r
-               t1 =  sn*d(i,c) - cs*d(i,cp1)
-               t2 =  cs*d(i,c) + sn*d(i,cp1)
-               d(i,c) = t1
-               d(i,cp1) = t2
-   10       continue
+            call drot (r, d(1,c), 1, d(1,cp1), 1, sn, -cs)
 c
 c           %--------------------------------------------------------%
 c           | Row update (full column range 1:m): D(c:c+1,1:m) <- G  |
@@ -140,23 +135,13 @@ c           | * D(c:c+1,1:m).  The full range is required since the  |
 c           | border row/column may still have the spike             |
 c           %--------------------------------------------------------%
 c
-            do 20 i = 1, m
-               t1 =  sn*d(c,i) - cs*d(cp1,i)
-               t2 =  cs*d(c,i) + sn*d(cp1,i)
-               d(c,i) = t1
-               d(cp1,i) = t2
-   20       continue
+            call drot (m, d(c,1), ldd, d(cp1,1), ldd, sn, -cs)
 c
 c           %--------------------------------------------------------%
 c           | Accumulate: Q(:,c:c+1) <- Q(:,c:c+1) * G'              |
 c           %--------------------------------------------------------%
 c
-            do 30 i = 1, m
-               t1 =  sn*q(i,c) - cs*q(i,cp1)
-               t2 =  cs*q(i,c) + sn*q(i,cp1)
-               q(i,c) = t1
-               q(i,cp1) = t2
-   30       continue
+            call drot (m, q(1,c), 1, q(1,cp1), 1, sn, -cs)
 c
    90    continue
   100 continue
