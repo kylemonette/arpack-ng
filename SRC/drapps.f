@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: mydsapps
+c\Name: drapps
 c
 c\Description:
 c  Given the Arnoldi factorization
@@ -22,7 +22,7 @@ c  HOUSE selects how the (KEV+1) by (KEV+1) arrowhead matrix is
 c  tridiagonalized.
 c
 c\Usage:
-c  call mydsapps
+c  call drapps
 c     ( N, KEV, NP, V, LDV, H, LDH, RESID, Q, LDQ,
 c       EIGVAL, EIGVEC, LDEIGVEC, WORKD, HOUSE )
 c
@@ -95,7 +95,7 @@ c  HOUSE   Logical.  (INPUT)
 c          Selects which tridiagonalization routine reduces the
 c          (KEV+1) by (KEV+1) arrowhead matrix:
 c          .TRUE.  uses LAPACK's Householder reduction (DSYTRD/DORGTR).
-c          .FALSE. uses one-way Givens chasing (ARROWGIVENS).
+c          .FALSE. uses one-way Givens chasing (dahtgv).
 c
 c\EndDoc
 c
@@ -118,7 +118,7 @@ c     Restarts (and nonsymmetric companion), James Baglama,
 c     Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
-c     arrowgivens ARPACK utility routine that tridiagonalizes the
+c     dahtgv ARPACK utility routine that tridiagonalizes the
 c             arrowhead matrix via one-way Givens chasing (HOUSE=.FALSE.).
 c     dsytrd  LAPACK routine that reduces a symmetric matrix to
 c             tridiagonal form via Householder reflectors (HOUSE=.TRUE.).
@@ -155,7 +155,7 @@ c     (EIGVAL, EIGVEC), already arranged so the first KEV entries/
 c     columns are the desired eigenpairs, form the (KEV+1) by (KEV+1)
 c     arrowhead matrix built from those KEV desired eigenpairs plus
 c     the residual attachment, reduce it directly to tridiagonal form
-c     via either one-way Givens chasing (ARROWGIVENS, following Zha
+c     via either one-way Givens chasing (dahtgv, following Zha
 c     (1992)) or LAPACK's standard Householder reduction (DSYTRD/
 c     DORGTR) -- HOUSE selects which -- and read the new H, V, and
 c     RESID off that result.
@@ -164,7 +164,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine mydsapps
+      subroutine drapps
      &   ( n, kev, np, v, ldv, h, ldh, resid, q, ldq,
      &     eigval, eigvec, ldeigvec, workd, house )
 c
@@ -217,7 +217,7 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
-     &           arrowgivens, dsytrd, dorgtr, arscnd
+     &           dahtgv, dsytrd, dorgtr, arscnd
 c
 c     %--------------------%
 c     | External Functions |
@@ -368,7 +368,7 @@ c        | Tridiagonalize DROT via the one-way Givens chasing scheme; |
 c        | DROT is overwritten in place with the tridiagonal result.  |
 c        %------------------------------------------------------------%
 c
-         call arrowgivens (kev+1, drot, kev+1, qrot, kev+1)
+         call dahtgv (kev+1, drot, kev+1, qrot, kev+1)
 c
 c        %--------------------------------------------------------%
 c        | Read the new leading KEV by KEV tridiagonal H, and     |
@@ -429,7 +429,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of mydsapps |
+c     | End of drapps |
 c     %-----------------%
 c
       end

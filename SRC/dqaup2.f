@@ -1,10 +1,10 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: mydnaup2
+c\Name: dqaup2
 c
 c\Description:
-c  Intermediate level interface called by mydnaupd.
+c  Intermediate level interface called by dqaupd.
 c
 c  This is a local fork of dnaup2 (arguments unchanged). Internally, it
 c  computes the full real Schur decomposition of the current KEV+NP
@@ -15,12 +15,12 @@ c  dnaup2's dneigh call, whose internal QR pass this subsumes). At
 c  shift-application time the SAME decomposition is reordered (via
 c  LAPACK's DTRSEN) so the NEV desired eigenvalues occupy the leading
 c  block, and that reordered Schur form/vectors are passed into
-c  mydnapps (the nonsymmetric arrowhead-restart fork of dnapps, which
+c  dqapps (the nonsymmetric arrowhead-restart fork of dnapps, which
 c  itself takes HOUSE to select Householder vs. Givens internally)
 c  instead of calling dnapps directly with a shift list.
 c
 c\Usage:
-c  call mydnaup2
+c  call dqaup2
 c     ( IDO, BMAT, N, WHICH, NEV, NP, TOL, RESID, MODE, IUPD,
 c       ISHIFT, MXITER, V, LDV, H, LDH, RITZR, RITZI, BOUNDS,
 c       Q, LDQ, WORKL, IPNTR, WORKD, INFO, HOUSE )
@@ -30,10 +30,10 @@ c  Identical to dnaup2 -- see dnaup2.f for the full description of every
 c  argument.
 c
 c  HOUSE   Logical.  (INPUT)
-c          Passed straight through to mydnapps at each shift-
+c          Passed straight through to dqapps at each shift-
 c          application step, selecting Householder (.TRUE.) vs.
 c          Givens (.FALSE.) reduction of the arrowhead matrix -- see
-c          mydnapps's own \Arguments for details.
+c          dqapps's own \Arguments for details.
 c
 c\EndDoc
 c
@@ -55,7 +55,7 @@ c
 c\Routines called:
 c     dgetv0   ARPACK initial vector generation routine.
 c     dnaitr   ARPACK Arnoldi factorization routine.
-c     mydnapps Local fork of dnapps: applies the nonsymmetric arrowhead
+c     dqapps Local fork of dnapps: applies the nonsymmetric arrowhead
 c              restart in place of implicit-shift bulge chasing.
 c     dnconv   ARPACK convergence of Ritz values routine.
 c     dtrevc   LAPACK routine that computes eigenvectors of a quasi-
@@ -97,7 +97,7 @@ c     Rice University
 c     Houston, Texas
 c
 c\SCCS Information: @(#)
-c FILE: mynaup2.F   SID: 2.8   DATE OF SID: 10/17/00   RELEASE: 2
+c FILE: dqaup2.F   SID: 2.8   DATE OF SID: 10/17/00   RELEASE: 2
 c
 c\Remarks
 c     1. None
@@ -106,7 +106,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine mydnaup2
+      subroutine dqaup2
      &   ( ido, bmat, n, which, nev, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, h, ldh, ritzr, ritzi, bounds,
      &     q, ldq, workl, ipntr, workd, info, house )
@@ -169,7 +169,7 @@ c
 c     %--------------------------------------------------------------%
 c     | Local workspace for the fresh real Schur decomposition of the|
 c     | current KEV+NP upper Hessenberg H, computed just before      |
-c     | applying shifts and passed into mydnapps. Sized by LDH, the  |
+c     | applying shifts and passed into dqapps. Sized by LDH, the  |
 c     | same bound H itself uses (the actual size in use at any      |
 c     | point is KPLUSP <= LDH).                                     |
 c     %--------------------------------------------------------------%
@@ -202,7 +202,7 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy  , dgetv0 , dnaitr , dnconv , dtrevc ,
-     &           dngets , mydnapps , dvout  , ivout , arscnd,
+     &           dngets , dqapps , dvout  , ivout , arscnd,
      &           dlahqr , dtrsen , dsortc , dlacpy , dlaset,
      &           dgemv  , dscal
 c
@@ -363,7 +363,7 @@ c
 c        %-----------------------------------------------------------%
 c        | Compute NP additional steps of the Arnoldi factorization. |
 c        | Adjust NP since NEV might have been updated by last call  |
-c        | to the shift application routine mydnapps.                |
+c        | to the shift application routine dqapps.                |
 c        %-----------------------------------------------------------%
 c
          np  = kplusp - nev
@@ -836,7 +836,7 @@ c        | Schur eigenpairs, reduce it to upper Hessenberg form, and |
 c        | read the updated H, V, and RESID off that result.         |
 c        %-----------------------------------------------------------%
 c
-         call mydnapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
+         call dqapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
      &        arrowschur, ldh, arrowschurvec, ldh, workd, house)
 c
 c        %---------------------------------------------%
@@ -916,7 +916,7 @@ c
  9000 continue
 c
 c     %-----------------%
-c     | End of mydnaup2 |
+c     | End of dqaup2 |
 c     %-----------------%
 c
       return

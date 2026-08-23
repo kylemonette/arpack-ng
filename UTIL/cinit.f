@@ -3,11 +3,11 @@ c\Name: cinit
 c
 c\Description:
 c  Initializes the ARPACK debug.h / stat.h COMMON block variables that
-c  mydsapps reads (logfil, ndigit, msapps, tsapps). Normally an ARPACK
+c  drapps reads (logfil, ndigit, msapps, tsapps). Normally an ARPACK
 c  driver program (e.g. dsaupd's caller) sets these once at start-up;
-c  since mydsapps is being called directly from a MEX gateway with no
+c  since drapps is being called directly from a MEX gateway with no
 c  such driver, this routine stands in for that step. Call it once
-c  before the first call to mydsapps.
+c  before the first call to drapps.
 c
 c\Usage:
 c  call cinit()
@@ -32,7 +32,7 @@ c
 c
 c     %----------------------------------------------------%
 c     | msapps: message/debug level for the *sapps routines |
-c     | 0 = silent. Raise this only if you want mydsapps to |
+c     | 0 = silent. Raise this only if you want drapps to |
 c     | print diagnostic output via ivout/dvout.            |
 c     %----------------------------------------------------%
 c
@@ -40,7 +40,7 @@ c
 c
 c     %------------------------------------------%
 c     | tsapps: cumulative timing accumulator for |
-c     | mydsapps, updated in-place by the routine |
+c     | drapps, updated in-place by the routine |
 c     | itself via arscnd. Must start at zero.    |
 c     %------------------------------------------%
 c

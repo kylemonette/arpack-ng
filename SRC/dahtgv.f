@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: arrowgivens
+c\Name: dahtgv
 c
 c\Description:
 c  Tridiagonalizes an M by M symmetric "upward-pointing" arrowhead
@@ -9,7 +9,7 @@ c  matrix A (hub at position (1,1), spike along row/column 1) using
 c  the one-way Givens chasing scheme of Zha (see reference 2 below).
 c
 c\Usage:
-c  call arrowgivens
+c  call dahtgv
 c     ( M, A, LDA, QMAT, LDQ )
 c
 c\Arguments
@@ -69,7 +69,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine arrowgivens
+      subroutine dahtgv
      &   ( m, a, lda, qmat, ldq )
 c
       integer    lda, ldq, m
@@ -198,7 +198,7 @@ c
       return
 c
 c     %----------------------%
-c     | End of arrowgivens   |
+c     | End of dahtgv   |
 c     %----------------------%
 c
       end

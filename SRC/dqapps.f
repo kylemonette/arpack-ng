@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: mydnapps
+c\Name: dqapps
 c
 c\Description:
 c  Given the Arnoldi factorization
@@ -22,7 +22,7 @@ c  HOUSE selects how the (KEV+1) by (KEV+1) nonsymmetric arrowhead
 c  matrix is reduced to upper Hessenberg form.
 c
 c\Usage:
-c  call mydnapps
+c  call dqapps
 c     ( N, KEV, NP, V, LDV, H, LDH, RESID, Q, LDQ,
 c       TSCHUR, LDTSCHUR, QSCHUR, LDQSCHUR, WORKD, HOUSE )
 c
@@ -33,7 +33,7 @@ c
 c  KEV     Integer.  (INPUT)
 c          KEV+NP is the size of the input matrix H. KEV is the size
 c          of the updated matrix HNEW. Unlike DNAPPS, this is a pure
-c          INPUT here: the caller (mydnaup2) is responsible for
+c          INPUT here: the caller (dqaup2) is responsible for
 c          incrementing KEV by one BEFORE calling this routine if
 c          doing otherwise would split a complex-conjugate pair
 c          across the KEV/NP boundary in TSCHUR (see \Remarks).
@@ -106,7 +106,7 @@ c  HOUSE   Logical.  (INPUT)
 c          Selects which routine reduces the (KEV+1) by (KEV+1)
 c          nonsymmetric arrowhead matrix to upper Hessenberg form:
 c          .TRUE.  uses LAPACK's Householder reduction (DGEHRD/DORGHR).
-c          .FALSE. uses one-way Givens chasing (NARROWGIVENS).
+c          .FALSE. uses one-way Givens chasing (dahhgv).
 c
 c\EndDoc
 c
@@ -123,10 +123,10 @@ c     Restarts (and nonsymmetric companion), James Baglama,
 c     Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
-c     narrowgivens  Local routine that reduces the nonsymmetric
+c     dahhgv  Local routine that reduces the nonsymmetric
 c             arrowhead matrix directly to upper Hessenberg form via
 c             a one-way Givens chasing scheme (no rotation of the
-c             arrowhead is required -- see narrowgivens.f). Used when
+c             arrowhead is required -- see dahhgv.f). Used when
 c             HOUSE=.FALSE.
 c     dgehrd  LAPACK routine that reduces a general matrix to upper
 c             Hessenberg form via Householder reflectors. Used when
@@ -160,7 +160,7 @@ c     result. "delta" is mathematically arbitrary (it never affects
 c     the resulting HNEW, VNEW, RESID); TSCHUR(m,m) is used here
 c     purely as a convenient, well-scaled placeholder.
 c  2. When HOUSE=.FALSE., D is reduced directly (as built above) via
-c     NARROWGIVENS. When HOUSE=.TRUE., LAPACK's general-purpose
+c     dahhgv. When HOUSE=.TRUE., LAPACK's general-purpose
 c     Householder Hessenberg reduction (DGEHRD, exactly like MATLAB's
 c     builtin HESS) does *not* preserve the required structure if
 c     applied directly to D -- following the discussion of Reference
@@ -182,7 +182,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine mydnapps
+      subroutine dqapps
      &   ( n, kev, np, v, ldv, h, ldh, resid, q, ldq,
      &     tschur, ldtschur, qschur, ldqschur, workd, house )
 c
@@ -235,7 +235,7 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
-     &           narrowgivens, dgehrd, dorghr, arscnd
+     &           dahhgv, dgehrd, dorghr, arscnd
 c
 c     %--------------------%
 c     | External Functions |
@@ -381,7 +381,7 @@ c
 c        %--------------------------------------------------------%
 c        | Build the natural (downward-pointing) nonsymmetric     |
 c        | arrowhead matrix D directly -- no rotation is needed   |
-c        | since NARROWGIVENS operates on this form as-is.        |
+c        | since dahhgv operates on this form as-is.        |
 c        %--------------------------------------------------------%
 c
          call dlaset ('All', kev+1, kev+1, zero, zero, d, kev+1)
@@ -399,7 +399,7 @@ c        %--------------------------------------------------------%
 c        | Reduce D directly to upper Hessenberg form.            |
 c        %--------------------------------------------------------%
 c
-         call narrowgivens (kev+1, d, kev+1, qarrow, kev+1)
+         call dahhgv (kev+1, d, kev+1, qarrow, kev+1)
 c
 c        %--------------------------------------------------------%
 c        | Read the new leading KEV by KEV upper Hessenberg H,    |
@@ -453,7 +453,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of mydnapps |
+c     | End of dqapps |
 c     %-----------------%
 c
       end

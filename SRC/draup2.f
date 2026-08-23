@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: mydsaup2
+c\Name: draup2
 c
 c\Description:
 c  Intermediate level interface called by dsaupd.
@@ -12,13 +12,13 @@ c  eigendecomposition of the current KEV+NP tridiagonal matrix H (via
 c  dsteqr) ONCE per iteration, right after the Lanczos expansion: the
 c  Ritz values and error bounds used for convergence testing are read
 c  directly off it (replacing dsaup2's dseigt call), and the same
-c  decomposition is then reused at shift-application time by mydsapps
+c  decomposition is then reused at shift-application time by drapps
 c  (a fork of dsapps that accepts it as a new input, and itself takes
 c  HOUSE to select Householder vs. Givens internally) instead of
 c  calling dsapps directly with a shift list.
 c
 c\Usage:
-c  call mydsaup2
+c  call draup2
 c     ( IDO, BMAT, N, WHICH, NEV, NP, TOL, RESID, MODE, IUPD,
 c       ISHIFT, MXITER, V, LDV, H, LDH, RITZ, BOUNDS, Q, LDQ, WORKL,
 c       IPNTR, WORKD, INFO, HOUSE )
@@ -124,10 +124,10 @@ c          = -9999: Could not build an Lanczos factorization.
 c                   Size that was built in returned in NP.
 c
 c  HOUSE   Logical.  (INPUT)
-c          Passed straight through to mydsapps at each shift-
+c          Passed straight through to drapps at each shift-
 c          application step, selecting Householder (.TRUE.) vs.
 c          Givens (.FALSE.) tridiagonalization of the arrowhead
-c          matrix -- see mydsapps's own \Arguments for details.
+c          matrix -- see drapps's own \Arguments for details.
 c
 c\EndDoc
 c
@@ -195,7 +195,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine mydsaup2
+      subroutine draup2
      &   ( ido, bmat, n, which, nev, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, h, ldh, ritz, bounds,
      &     q, ldq, workl, ipntr, workd, info, house )
@@ -256,7 +256,7 @@ c     | current KEV+NP tridiagonal H. Computed ONCE per iteration    |
 c     | (right after the Lanczos expansion, replacing the dseigt     |
 c     | call -- the Ritz values and error bounds are read directly   |
 c     | off this decomposition) and reused at shift-application      |
-c     | time by mydsapps (HOUSE selects Householder vs. Givens).     |
+c     | time by drapps (HOUSE selects Householder vs. Givens).     |
 c     | ARROWEIGVAL/ARROWEIGVEC carry data from the computation site |
 c     | to the shift site, across the possible ISHIFT=0 reverse-     |
 c     | communication exit in between, so they are SAVEd allocatables|
@@ -275,7 +275,7 @@ c     %--------------------------------------------------------------%
 c     | Local workspace for selecting/reordering the KEV+NP          |
 c     | eigenpairs above so the NEV "desired" ones (per the fresh    |
 c     | ARROWEIGVAL, sorted directly by the user's WHICH preference) |
-c     | end up in the first NEV positions. mydsapps requires its     |
+c     | end up in the first NEV positions. drapps requires its     |
 c     | EIGVAL/EIGVEC inputs pre-sorted this way; it does not do any |
 c     | selection itself.                                            |
 c     %--------------------------------------------------------------%
@@ -290,7 +290,7 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dgetv0, dsaitr, dscal, dsconv, dsgets,
-     &           mydsapps, dsortr, dvout, ivout, arscnd, dswap, dsteqr
+     &           drapps, dsortr, dvout, ivout, arscnd, dswap, dsteqr
 c
 c     %--------------------%
 c     | External Functions |
@@ -883,13 +883,13 @@ c        %---------------------------------------------------------%
 c        | Apply the NP0 implicit shifts by QR bulge chasing.      |
 c        | Each shift is applied to the entire tridiagonal matrix. |
 c        | The first 2*N locations of WORKD are used as workspace. |
-c        | HOUSE is passed straight through to mydsapps, which     |
+c        | HOUSE is passed straight through to drapps, which     |
 c        | itself selects Householder vs. Givens internally. After |
 c        | it is done, we have a Lanczos factorization of length   |
 c        | NEV.                                                     |
 c        %---------------------------------------------------------%
 c
-         call mydsapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
+         call drapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
      &        arrowsortval, arrowsortvec, ldh, workd, house)
 c
 c        %---------------------------------------------%
@@ -973,7 +973,7 @@ c
       return
 c
 c     %-----------------%
-c     | End of mydsaup2 |
+c     | End of draup2 |
 c     %-----------------%
 c
       end

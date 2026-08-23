@@ -1,7 +1,7 @@
 c-----------------------------------------------------------------------
 c\BeginDoc
 c
-c\Name: narrowgivens
+c\Name: dahhgv
 c
 c\Description:
 c  Reduces an M by M nonsymmetric arrowhead matrix D (pointing
@@ -10,13 +10,13 @@ c  upper-triangular leading block D(1:M-1,1:M-1)) to upper Hessenberg
 c  form using Givens rotations in a one-way chasing scheme in the
 c  style of Zha (see reference 2 below).
 c
-c  Unlike ARROWGIVENS (the symmetric routine, whose input must be
+c  Unlike dahtgv (the symmetric routine, whose input must be
 c  pre-rotated to put the hub at (1,1)), no such rotation of D is
 c  needed here: the spike is chased directly out of its natural
 c  "downward-pointing" form.
 c
 c\Usage:
-c  call narrowgivens
+c  call dahhgv
 c     ( M, D, LDD, Q, LDQ )
 c
 c\Arguments
@@ -79,7 +79,7 @@ c\EndLib
 c
 c-----------------------------------------------------------------------
 c
-      subroutine narrowgivens
+      subroutine dahhgv
      &   ( m, d, ldd, q, ldq )
 c
       integer    ldd, ldq, m
@@ -171,7 +171,7 @@ c
       return
 c
 c     %-----------------------%
-c     | End of narrowgivens   |
+c     | End of dahhgv   |
 c     %-----------------------%
 c
       end
