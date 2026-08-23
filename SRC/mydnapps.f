@@ -18,10 +18,13 @@ c  \References). The updated Arnoldi factorization becomes:
 c
 c     A*VNEW_{k} - VNEW_{k}*HNEW_{k} = rnew_{k}*e_{k}^T.
 c
+c  HOUSE selects how the (KEV+1) by (KEV+1) nonsymmetric arrowhead
+c  matrix is reduced to upper Hessenberg form.
+c
 c\Usage:
 c  call mydnapps
 c     ( N, KEV, NP, V, LDV, H, LDH, RESID, Q, LDQ,
-c       TSCHUR, LDTSCHUR, QSCHUR, LDQSCHUR, WORKD )
+c       TSCHUR, LDTSCHUR, QSCHUR, LDQSCHUR, WORKD, HOUSE )
 c
 c\Arguments
 c  N       Integer.  (INPUT)
@@ -99,6 +102,12 @@ c
 c  WORKD   Double precision work array of length 2*N.  (WORKSPACE,
 c          unused -- kept for interface parity with DNAPPS.)
 c
+c  HOUSE   Logical.  (INPUT)
+c          Selects which routine reduces the (KEV+1) by (KEV+1)
+c          nonsymmetric arrowhead matrix to upper Hessenberg form:
+c          .TRUE.  uses LAPACK's Householder reduction (DGEHRD/DORGHR).
+c          .FALSE. uses one-way Givens chasing (NARROWGIVENS).
+c
 c\EndDoc
 c
 c-----------------------------------------------------------------------
@@ -117,9 +126,17 @@ c\Routines called:
 c     narrowgivens  Local routine that reduces the nonsymmetric
 c             arrowhead matrix directly to upper Hessenberg form via
 c             a one-way Givens chasing scheme (no rotation of the
-c             arrowhead is required -- see narrowgivens.f).
+c             arrowhead is required -- see narrowgivens.f). Used when
+c             HOUSE=.FALSE.
+c     dgehrd  LAPACK routine that reduces a general matrix to upper
+c             Hessenberg form via Householder reflectors. Used when
+c             HOUSE=.TRUE.
+c     dorghr  LAPACK routine that generates the explicit orthogonal
+c             matrix from DGEHRD's packed reflectors. Used when
+c             HOUSE=.TRUE.
 c     arscnd  ARPACK utility routine for timing.
 c     dlaset  LAPACK matrix initialization routine.
+c     dlacpy  LAPACK matrix copy routine.
 c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
 c     dgemm   Level 3 BLAS routine for matrix-matrix multiplication.
 c     dcopy   Level 1 BLAS that copies one vector to another.
@@ -137,13 +154,27 @@ c
 c         D = | TSCHUR(1:KEV,1:KEV)      c*QSCHUR(m,1:KEV)' |
 c             | c*QSCHUR(m,1:KEV)              delta        |
 c
-c     where m = KEV+NP and c = RNORM = ||RESID||, reduce it directly
-c     to upper Hessenberg form via NARROWGIVENS, and read the updated
-c     H, V, and RESID off that result. "delta" is mathematically
-c     arbitrary (it never affects the resulting HNEW, VNEW, RESID);
-c     TSCHUR(m,m) is used here purely as a convenient, well-scaled
-c     placeholder.
-c  2. Unlike DNAPPS, KEV is never adjusted inside this routine to
+c     where m = KEV+NP and c = RNORM = ||RESID||, reduce it to upper
+c     Hessenberg form, and read the updated H, V, and RESID off that
+c     result. "delta" is mathematically arbitrary (it never affects
+c     the resulting HNEW, VNEW, RESID); TSCHUR(m,m) is used here
+c     purely as a convenient, well-scaled placeholder.
+c  2. When HOUSE=.FALSE., D is reduced directly (as built above) via
+c     NARROWGIVENS. When HOUSE=.TRUE., LAPACK's general-purpose
+c     Householder Hessenberg reduction (DGEHRD, exactly like MATLAB's
+c     builtin HESS) does *not* preserve the required structure if
+c     applied directly to D -- following the discussion of Reference
+c     2, D must first be rotated via the permutation Pi and
+c     transposed:
+c
+c         Pi*D^T*Pi = | delta            c*e_m^T*Qk   |
+c                     | c*Qk^T*e_m       Pi*Sk^T*Pi   |
+c
+c     which moves the hub to position (1,1) and reverses the interior
+c     block. DGEHRD/DORGHR are applied to THIS rotated matrix (called
+c     DROT below); the result is then implicitly un-rotated by simply
+c     reading its entries back out with the same index reversal.
+c  3. Unlike DNAPPS, KEV is never adjusted inside this routine to
 c     avoid splitting a complex-conjugate pair -- the caller must
 c     arrange TSCHUR/QSCHUR (and increment KEV) BEFORE calling.
 c
@@ -153,7 +184,7 @@ c-----------------------------------------------------------------------
 c
       subroutine mydnapps
      &   ( n, kev, np, v, ldv, h, ldh, resid, q, ldq,
-     &     tschur, ldtschur, qschur, ldqschur, workd )
+     &     tschur, ldtschur, qschur, ldqschur, workd, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -167,6 +198,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       integer    kev, ldh, ldq, ldqschur, ldtschur, ldv, n, np
+      logical    house
 c
 c     %-----------------%
 c     | Array Arguments |
@@ -189,20 +221,21 @@ c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      integer    i, j, kplusp, msglvl
+      integer    i, j, p, kplusp, msglvl, houseinfo, lwork
       Double precision
-     &           rnorm, betak
+     &           rnorm, betak, qwork(1)
       Double precision
      &           d(kev+1,kev+1), qarrow(kev+1,kev+1),
-     &           qfinal(kev+np,kev)
-      Double precision, allocatable :: vnew(:,:)
+     &           drot(kev+1,kev+1), hbuf(kev+1,kev+1), tau(kev),
+     &           qk1(kev,kev), qfinal(kev+np,kev)
+      Double precision, allocatable :: housework(:), vnew(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
-     &           narrowgivens, arscnd
+     &           narrowgivens, dgehrd, dorghr, arscnd
 c
 c     %--------------------%
 c     | External Functions |
@@ -232,6 +265,25 @@ c     %----------------------------------------------%
 c
       if (np .eq. 0) go to 9000
 c
+      if (house) then
+c
+c        %--------------------------------------------------------------%
+c        | Workspace query: ask DGEHRD and DORGHR for their optimal     |
+c        | (blocked) LWORK instead of hardcoding the unblocked minimum, |
+c        | so LAPACK can use its blocked kernels for larger KEV. The    |
+c        | query calls (LWORK = -1) only inspect dimensions -- no array |
+c        | contents are referenced. 8*(KEV+1) is kept as a floor.       |
+c        %--------------------------------------------------------------%
+c
+         call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau, qwork, -1,
+     &                houseinfo)
+         lwork = int(qwork(1))
+         call dorghr (kev+1, 1, kev+1, drot, kev+1, tau, qwork, -1,
+     &                houseinfo)
+         lwork = max(lwork, int(qwork(1)), 8*(kev+1))
+         allocate (housework(lwork))
+      end if
+c
 c     %------------------------------------------------------%
 c     | RNORM: the current residual norm, needed both as the |
 c     | arrowhead spike scale and to normalize the residual  |
@@ -240,50 +292,138 @@ c     %------------------------------------------------------%
 c
       rnorm = dnrm2(n, resid, 1)
 c
-c     %--------------------------------------------------------%
-c     | Build the natural (downward-pointing) nonsymmetric     |
-c     | arrowhead matrix D directly -- no rotation is needed   |
-c     | since NARROWGIVENS operates on this form as-is.        |
-c     %--------------------------------------------------------%
+      if (house) then
 c
-      call dlaset ('All', kev+1, kev+1, zero, zero, d, kev+1)
+c        %---------------------------------------------------------------%
+c        | Build the ALREADY 180-degree-rotated (and transposed) (KEV+1) |
+c        | by (KEV+1) arrowhead matrix DROT (hub at (1,1), border along  |
+c        | row/column 1, interior block = Pi*Sk^T*Pi) -- mathematically  |
+c        | identical to building the natural downward-pointing arrowhead |
+c        | and then applying the rotation of \Remarks (2), but without   |
+c        | ever forming that un-rotated matrix.                          |
+c        %---------------------------------------------------------------%
 c
-      call dlacpy ('All', kev, kev, tschur, ldtschur, d, kev+1)
+         call dlaset ('All', kev+1, kev+1, zero, zero, drot, kev+1)
 c
-      do 70 i = 1, kev
-         d(i,kev+1) = rnorm * qschur(kplusp,i)
-         d(kev+1,i) = rnorm * qschur(kplusp,i)
-   70 continue
+         do 50 j = 2, kev+1
+            drot(1,j) = rnorm * qschur(kplusp, kev+2-j)
+            drot(j,1) = drot(1,j)
+   50    continue
 c
-      d(kev+1,kev+1) = tschur(kplusp,kplusp)
+         do 70 j = 2, kev+1
+            do 60 i = 2, kev+1
+               drot(i,j) = tschur(kev+2-j, kev+2-i)
+   60       continue
+   70    continue
 c
-c     %--------------------------------------------------------%
-c     | Reduce D directly to upper Hessenberg form.            |
-c     %--------------------------------------------------------%
+c        %--------------------------------------------------------------%
+c        | Reduce DROT to upper Hessenberg form via LAPACK's general    |
+c        | Householder reduction. DGEHRD packs the Hessenberg values    |
+c        | into the upper triangle + first subdiagonal of DROT, with    |
+c        | Householder vector data below that -- copy the valid         |
+c        | Hessenberg entries out to HBUF before DORGHR overwrites DROT |
+c        | with the explicit orthogonal matrix.                         |
+c        %--------------------------------------------------------------%
 c
-      call narrowgivens (kev+1, d, kev+1, qarrow, kev+1)
+         call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau,
+     &                housework, lwork, houseinfo)
 c
-c     %--------------------------------------------------------%
-c     | Read the new leading KEV by KEV upper Hessenberg H,    |
-c     | and BETAK (the new residual coupling), directly out of |
-c     | the reduced result.                                    |
-c     %--------------------------------------------------------%
+         call dlaset ('All', kev+1, kev+1, zero, zero, hbuf, kev+1)
+         do 90 j = 1, kev+1
+            do 80 i = 1, min(j+1,kev+1)
+               hbuf(i,j) = drot(i,j)
+   80       continue
+   90    continue
 c
-      call dlacpy ('All', kev, kev, d, kev+1, h, ldh)
+         call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
+     &                housework, lwork, houseinfo)
 c
-      betak = d(kev+1,kev)
+         deallocate (housework)
 c
-c     %--------------------------------------------------------%
-c     | Build QFINAL = QSCHUR(:,1:kev) * QARROW(1:kev,1:kev),  |
-c     | the KPLUSP by KEV transformation carrying V's current  |
-c     | KPLUSP-column basis directly onto the new KEV-column   |
-c     | basis. Unlike the House variant (and the symmetric     |
-c     | routines), QARROW is already in the natural, unreversed|
-c     | order, so this is a plain matrix product               |
-c     %--------------------------------------------------------%
+c        %--------------------------------------------------------------%
+c        | Read the new leading KEV by KEV upper Hessenberg H, and      |
+c        | BETAK (the new residual coupling), directly out of HBUF by   |
+c        | un-rotating (the SAME index reversal used to build DROT,     |
+c        | since Pi is an involution) -- entries strictly below H's own |
+c        | subdiagonal are explicitly zeroed rather than read out of    |
+c        | HBUF, since the corresponding HBUF locations there hold      |
+c        | leftover Householder-vector data, not Hessenberg zeros.      |
+c        %--------------------------------------------------------------%
 c
-      call dgemm ('N', 'N', kplusp, kev, kev, one, qschur, ldqschur,
-     &            qarrow, kev+1, zero, qfinal, kplusp)
+         call dlaset ('All', kev, kev, zero, zero, h, ldh)
+         do 110 j = 1, kev
+            do 100 i = 1, min(j+1,kev)
+               h(i,j) = hbuf(kev+2-j, kev+2-i)
+  100       continue
+  110    continue
+c
+         betak = hbuf(2,1)
+c
+c        %--------------------------------------------------------------%
+c        | Build QFINAL = QSCHUR(:,1:kev) * QK1(1:kev,1:kev), the       |
+c        | KPLUSP by KEV transformation carrying V's current KPLUSP-    |
+c        | column basis directly onto the new KEV-column basis. QK1 is  |
+c        | read out of the now-orthogonal DROT the same way H was read  |
+c        | out of HBUF above (both need the same index reversal).       |
+c        %--------------------------------------------------------------%
+c
+         do 130 j = 1, kev
+            do 120 p = 1, kev
+               qk1(p,j) = drot(kev+2-p,kev+2-j)
+  120       continue
+  130    continue
+c
+         call dgemm ('N', 'N', kplusp, kev, kev, one, qschur, ldqschur,
+     &               qk1, kev, zero, qfinal, kplusp)
+c
+      else
+c
+c        %--------------------------------------------------------%
+c        | Build the natural (downward-pointing) nonsymmetric     |
+c        | arrowhead matrix D directly -- no rotation is needed   |
+c        | since NARROWGIVENS operates on this form as-is.        |
+c        %--------------------------------------------------------%
+c
+         call dlaset ('All', kev+1, kev+1, zero, zero, d, kev+1)
+c
+         call dlacpy ('All', kev, kev, tschur, ldtschur, d, kev+1)
+c
+         do 700 i = 1, kev
+            d(i,kev+1) = rnorm * qschur(kplusp,i)
+            d(kev+1,i) = rnorm * qschur(kplusp,i)
+  700    continue
+c
+         d(kev+1,kev+1) = tschur(kplusp,kplusp)
+c
+c        %--------------------------------------------------------%
+c        | Reduce D directly to upper Hessenberg form.            |
+c        %--------------------------------------------------------%
+c
+         call narrowgivens (kev+1, d, kev+1, qarrow, kev+1)
+c
+c        %--------------------------------------------------------%
+c        | Read the new leading KEV by KEV upper Hessenberg H,    |
+c        | and BETAK (the new residual coupling), directly out of |
+c        | the reduced result.                                    |
+c        %--------------------------------------------------------%
+c
+         call dlacpy ('All', kev, kev, d, kev+1, h, ldh)
+c
+         betak = d(kev+1,kev)
+c
+c        %--------------------------------------------------------%
+c        | Build QFINAL = QSCHUR(:,1:kev) * QARROW(1:kev,1:kev),  |
+c        | the KPLUSP by KEV transformation carrying V's current  |
+c        | KPLUSP-column basis directly onto the new KEV-column   |
+c        | basis. Unlike the House variant (and the symmetric     |
+c        | routines), QARROW is already in the natural, unreversed|
+c        | order, so this is a plain matrix product               |
+c        %--------------------------------------------------------%
+c
+         call dgemm ('N', 'N', kplusp, kev, kev, one, qschur, ldqschur,
+     &               qarrow, kev+1, zero, qfinal, kplusp)
+c
+      end if
 c
 c     %--------------------------------------------------------%
 c     | Update V: V(:,1:kev) <- V(:,1:kplusp) * QFINAL.        |

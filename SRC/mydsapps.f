@@ -18,10 +18,13 @@ c  factorization becomes:
 c
 c     A*VNEW_{k} - VNEW_{k}*HNEW_{k} = rnew_{k}*e_{k}^T.
 c
+c  HOUSE selects how the (KEV+1) by (KEV+1) arrowhead matrix is
+c  tridiagonalized.
+c
 c\Usage:
 c  call mydsapps
 c     ( N, KEV, NP, V, LDV, H, LDH, RESID, Q, LDQ,
-c       EIGVAL, EIGVEC, LDEIGVEC, WORKD )
+c       EIGVAL, EIGVEC, LDEIGVEC, WORKD, HOUSE )
 c
 c\Arguments
 c  N       Integer.  (INPUT)
@@ -88,6 +91,12 @@ c  WORKD   Double precision work array of length 2*N.  (WORKSPACE)
 c          Distributed array used in the application of the accumulated
 c          orthogonal matrix Q.
 c
+c  HOUSE   Logical.  (INPUT)
+c          Selects which tridiagonalization routine reduces the
+c          (KEV+1) by (KEV+1) arrowhead matrix:
+c          .TRUE.  uses LAPACK's Householder reduction (DSYTRD/DORGTR).
+c          .FALSE. uses one-way Givens chasing (ARROWGIVENS).
+c
 c\EndDoc
 c
 c-----------------------------------------------------------------------
@@ -109,17 +118,19 @@ c     Restarts (and nonsymmetric companion), James Baglama,
 c     Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
-c     ivout   ARPACK utility routine that prints integers.
-c     arscnd  ARPACK utility routine for timing.
-c     dvout   ARPACK utility routine that prints vectors.
-c     dlamch  LAPACK routine that determines machine constants.
-c     dlartg  LAPACK Givens rotation construction routine.
-c     dlacpy  LAPACK matrix copy routine.
+c     arrowgivens ARPACK utility routine that tridiagonalizes the
+c             arrowhead matrix via one-way Givens chasing (HOUSE=.FALSE.).
+c     dsytrd  LAPACK routine that reduces a symmetric matrix to
+c             tridiagonal form via Householder reflectors (HOUSE=.TRUE.).
+c     dorgtr  LAPACK routine that generates the explicit orthogonal
+c             matrix from DSYTRD's packed reflectors (HOUSE=.TRUE.).
+c     dnrm2   Level 1 BLAS that computes the Euclidean norm of a vector.
 c     dlaset  LAPACK matrix initialization routine.
+c     dlacpy  LAPACK matrix copy routine.
 c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
-c     daxpy   Level 1 BLAS that computes a vector triad.
 c     dcopy   Level 1 BLAS that copies one vector to another.
 c     dscal   Level 1 BLAS that scales a vector.
+c     arscnd  ARPACK utility routine for timing.
 c
 c\Author
 c     Danny Sorensen               Phuong Vu
@@ -144,8 +155,10 @@ c     (EIGVAL, EIGVEC), already arranged so the first KEV entries/
 c     columns are the desired eigenpairs, form the (KEV+1) by (KEV+1)
 c     arrowhead matrix built from those KEV desired eigenpairs plus
 c     the residual attachment, reduce it directly to tridiagonal form
-c     via one-way Givens chasing (ARROWGIVENS, following Zha (1992)),
-c     and read the new H, V, and RESID off that result.
+c     via either one-way Givens chasing (ARROWGIVENS, following Zha
+c     (1992)) or LAPACK's standard Householder reduction (DSYTRD/
+c     DORGTR) -- HOUSE selects which -- and read the new H, V, and
+c     RESID off that result.
 c
 c\EndLib
 c
@@ -153,7 +166,7 @@ c-----------------------------------------------------------------------
 c
       subroutine mydsapps
      &   ( n, kev, np, v, ldv, h, ldh, resid, q, ldq,
-     &     eigval, eigvec, ldeigvec, workd )
+     &     eigval, eigvec, ldeigvec, workd, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -167,6 +180,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       integer    kev, ldeigvec, ldh, ldq, ldv, n, np
+      logical    house
 c
 c     %-----------------%
 c     | Array Arguments |
@@ -189,20 +203,21 @@ c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      integer    i, j, p, kplusp, msglvl
+      integer    i, j, p, kplusp, msglvl, houseinfo, lwork
       Double precision
-     &           rnorm, betak
+     &           rnorm, betak, qwork(1)
       Double precision
      &           drot(kev+1,kev+1), qrot(kev+1,kev+1), qk1(kev,kev),
+     &           dvec(kev+1), evec(kev), tau(kev),
      &           qfinal(kev+np,kev)
-      Double precision, allocatable :: vnew(:,:)
+      Double precision, allocatable :: housework(:), vnew(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
-     &           arrowgivens, arscnd
+     &           arrowgivens, dsytrd, dorgtr, arscnd
 c
 c     %--------------------%
 c     | External Functions |
@@ -232,20 +247,40 @@ c     %----------------------------------------------%
 c
       if (np .eq. 0) go to 9000
 c
-c     %--------------------------------------------------------%
-c     | ARROWHEAD RESTART (replaces the classical implicit-    |
-c     | shift bulge-chasing entirely): given the caller's full |
-c     | eigendecomposition of the current KEV+NP tridiagonal   |
-c     | (EIGVAL, EIGVEC), already arranged so the first KEV    |
-c     | entries/columns are the desired eigenpairs, form the   |
-c     | (KEV+1) by (KEV+1) arrowhead matrix built from those   |
-c     | KEV desired eigenpairs plus the residual attachment,   |
-c     | reduce it directly to tridiagonal form via one-way     |
-c     | Givens chasing (ARROWGIVENS, following Zha (1992)), and|
-c     | read the new H, V, and RESID off that result. See "A   |
-c     | Unified View of Arrowhead Matrix Transformations and   |
-c     | Lanczos Restarts", Baglama, Monette, Perovic (2026).   |
-c     %--------------------------------------------------------%
+      if (house) then
+c
+c        %--------------------------------------------------------------%
+c        | Workspace query: ask DSYTRD and DORGTR for their optimal     |
+c        | (blocked) LWORK instead of hardcoding the unblocked minimum, |
+c        | so LAPACK can use its blocked kernels for larger KEV. The    |
+c        | query calls (LWORK = -1) only inspect dimensions -- no array |
+c        | contents are referenced. 5*(KEV+1) is kept as a floor.       |
+c        %--------------------------------------------------------------%
+c
+         call dsytrd ('L', kev+1, drot, kev+1, dvec, evec, tau,
+     &                qwork, -1, houseinfo)
+         lwork = int(qwork(1))
+         call dorgtr ('L', kev+1, drot, kev+1, tau, qwork, -1,
+     &                houseinfo)
+         lwork = max(lwork, int(qwork(1)), 5*(kev+1))
+         allocate (housework(lwork))
+      end if
+c
+c     %-------------------------------------------------------------%
+c     | ARROWHEAD RESTART (replaces the classical implicit-         |
+c     | shift bulge-chasing entirely): given the caller's full      |
+c     | eigendecomposition of the current KEV+NP tridiagonal        |
+c     | (EIGVAL, EIGVEC), already arranged so the first KEV         |
+c     | entries/columns are the desired eigenpairs, form the        |
+c     | (KEV+1) by (KEV+1) arrowhead matrix built from those        |
+c     | KEV desired eigenpairs plus the residual attachment,        |
+c     | reduce it directly to tridiagonal form via either one-way   |
+c     | Givens chasing or LAPACK's Householder reduction (HOUSE     |
+c     | selects which), and read the new H, V, and RESID off that   |
+c     | result. See "A Unified View of Arrowhead Matrix             |
+c     | Transformations and Lanczos Restarts", Baglama, Monette,    |
+c     | Perovic (2026).                                             |
+c     %-------------------------------------------------------------%
 c
 c     %------------------------------------------------------%
 c     | RNORM: the current residual norm, needed both as the |
@@ -259,8 +294,9 @@ c     %-----------------------------------------------------------%
 c     | Directly build the ALREADY 180-degree-rotated (KEV+1) by  |
 c     | (KEV+1) arrowhead matrix DROT -- mathematically identical |
 c     | to building the natural "downward-pointing" arrowhead     |
-c     | and then rotating it 180 degrees, without forming the     |
-c     | un-rotated matrix                                         |
+c     | (hub/spike attached to the LAST row/column) and then      |
+c     | rotating it 180 degrees via ROT90(.,2), but without ever  |
+c     | forming the un-rotated matrix                             |
 c     %-----------------------------------------------------------%
 c
       call dlaset ('All', kev+1, kev+1, zero, zero, drot, kev+1)
@@ -273,40 +309,96 @@ c
          drot(i,i) = eigval(kev+2-i)
    60 continue
 c
-c     %------------------------------------------------------------%
-c     | Tridiagonalize DROT via the one-way Givens chasing scheme; |
-c     | DROT is overwritten in place with the tridiagonal result.  |
-c     %------------------------------------------------------------%
+      if (house) then
 c
-      call arrowgivens (kev+1, drot, kev+1, qrot, kev+1)
+c        %--------------------------------------------------------------%
+c        | Tridiagonalize DROT via LAPACK's standard Householder        |
+c        | reduction. DSYTRD overwrites DROT with the tridiagonal's     |
+c        | diagonal/off-diagonal split out into DVEC/EVEC, plus the     |
+c        | Householder reflector vectors packed into DROT's lower       |
+c        | triangle; DORGTR then turns those packed reflectors into the |
+c        | actual explicit orthogonal matrix, overwriting DROT again    |
+c        %--------------------------------------------------------------%
 c
-c     %--------------------------------------------------------%
-c     | Read the new leading KEV by KEV tridiagonal H, and     |
-c     | BETAK, directly out of the rotated result              |
-c     %--------------------------------------------------------%
+         call dsytrd ('L', kev+1, drot, kev+1, dvec, evec, tau,
+     &                housework, lwork, houseinfo)
+         call dorgtr ('L', kev+1, drot, kev+1, tau,
+     &                housework, lwork, houseinfo)
 c
-      do 70 i = 1, kev
-         h(i,2) = drot(kev+2-i,kev+2-i)
-   70 continue
-      do 80 i = 2, kev
-         h(i,1) = drot(kev+2-i,kev+3-i)
-   80 continue
+         deallocate (housework)
 c
-      betak = drot(1,2)
+c        %--------------------------------------------------------%
+c        | Read the new leading KEV by KEV tridiagonal H, and     |
+c        | BETAK (the new residual coupling), directly out of the |
+c        | rotated result -- again without physically un-rotating |
+c        | anything (DVEC/EVEC are DSYTRD's own tridiagonal-space |
+c        | diagonal/off-diagonal output; see this routine's own   |
+c        | \Description for the index correspondence this relies  |
+c        | on).                                                   |
+c        %--------------------------------------------------------%
 c
-c     %--------------------------------------------------------%
-c     | Build QFINAL = EIGVEC(:,1:kev) * QK1(1:kev,1:kev), the |
-c     | KPLUSP by KEV transformation carrying V's current      |
-c     | KPLUSP-column basis directly onto the new KEV-column   |
-c     | basis (QK1 read out of QROT the same way T was read    |
-c     | out of DROT above).                                    |
-c     %--------------------------------------------------------%
+         do 70 i = 1, kev
+            h(i,2) = dvec(kev+2-i)
+   70    continue
+         do 80 i = 2, kev
+            h(i,1) = evec(kev+2-i)
+   80    continue
 c
-      do 120 j = 1, kev
-         do 110 p = 1, kev
-            qk1(p,j) = qrot(kev+2-p,kev+2-j)
-  110    continue
-  120 continue
+         betak = evec(1)
+c
+c        %--------------------------------------------------------%
+c        | Build QFINAL = EIGVEC(:,1:kev) * QK1(1:kev,1:kev), the |
+c        | KPLUSP by KEV transformation carrying V's current      |
+c        | KPLUSP-column basis directly onto the new KEV-column   |
+c        | basis (QK1 read out of DROT the same way T was read    |
+c        | out of DROT above -- DORGTR left the orthogonal factor |
+c        | in DROT itself).                                      |
+c        %--------------------------------------------------------%
+c
+         do 120 j = 1, kev
+            do 110 p = 1, kev
+               qk1(p,j) = drot(kev+2-p,kev+2-j)
+  110       continue
+  120    continue
+c
+      else
+c
+c        %------------------------------------------------------------%
+c        | Tridiagonalize DROT via the one-way Givens chasing scheme; |
+c        | DROT is overwritten in place with the tridiagonal result.  |
+c        %------------------------------------------------------------%
+c
+         call arrowgivens (kev+1, drot, kev+1, qrot, kev+1)
+c
+c        %--------------------------------------------------------%
+c        | Read the new leading KEV by KEV tridiagonal H, and     |
+c        | BETAK, directly out of the rotated result              |
+c        %--------------------------------------------------------%
+c
+         do 71 i = 1, kev
+            h(i,2) = drot(kev+2-i,kev+2-i)
+   71    continue
+         do 81 i = 2, kev
+            h(i,1) = drot(kev+2-i,kev+3-i)
+   81    continue
+c
+         betak = drot(1,2)
+c
+c        %--------------------------------------------------------%
+c        | Build QFINAL = EIGVEC(:,1:kev) * QK1(1:kev,1:kev), the |
+c        | KPLUSP by KEV transformation carrying V's current      |
+c        | KPLUSP-column basis directly onto the new KEV-column   |
+c        | basis (QK1 read out of QROT the same way T was read    |
+c        | out of DROT above).                                    |
+c        %--------------------------------------------------------%
+c
+         do 121 j = 1, kev
+            do 111 p = 1, kev
+               qk1(p,j) = qrot(kev+2-p,kev+2-j)
+  111       continue
+  121    continue
+c
+      end if
 c
       call dgemm ('N', 'N', kplusp, kev, kev, one, eigvec, ldeigvec,
      &            qk1, kev, zero, qfinal, kplusp)

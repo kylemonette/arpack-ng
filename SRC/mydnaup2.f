@@ -15,18 +15,25 @@ c  dnaup2's dneigh call, whose internal QR pass this subsumes). At
 c  shift-application time the SAME decomposition is reordered (via
 c  LAPACK's DTRSEN) so the NEV desired eigenvalues occupy the leading
 c  block, and that reordered Schur form/vectors are passed into
-c  mydnapps (the nonsymmetric arrowhead-restart fork of dnapps)
+c  mydnapps (the nonsymmetric arrowhead-restart fork of dnapps, which
+c  itself takes HOUSE to select Householder vs. Givens internally)
 c  instead of calling dnapps directly with a shift list.
 c
 c\Usage:
 c  call mydnaup2
 c     ( IDO, BMAT, N, WHICH, NEV, NP, TOL, RESID, MODE, IUPD,
 c       ISHIFT, MXITER, V, LDV, H, LDH, RITZR, RITZI, BOUNDS,
-c       Q, LDQ, WORKL, IPNTR, WORKD, INFO )
+c       Q, LDQ, WORKL, IPNTR, WORKD, INFO, HOUSE )
 c
 c\Arguments
 c  Identical to dnaup2 -- see dnaup2.f for the full description of every
 c  argument.
+c
+c  HOUSE   Logical.  (INPUT)
+c          Passed straight through to mydnapps at each shift-
+c          application step, selecting Householder (.TRUE.) vs.
+c          Givens (.FALSE.) reduction of the arrowhead matrix -- see
+c          mydnapps's own \Arguments for details.
 c
 c\EndDoc
 c
@@ -102,7 +109,7 @@ c
       subroutine mydnaup2
      &   ( ido, bmat, n, which, nev, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, h, ldh, ritzr, ritzi, bounds,
-     &     q, ldq, workl, ipntr, workd, info )
+     &     q, ldq, workl, ipntr, workd, info, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -116,6 +123,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       character  bmat*1, which*2
+      logical    house
       integer    ido, info, ishift, iupd, mode, ldh, ldq, ldv, mxiter,
      &           n, nev, np
       Double precision
@@ -829,7 +837,7 @@ c        | read the updated H, V, and RESID off that result.         |
 c        %-----------------------------------------------------------%
 c
          call mydnapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
-     &        arrowschur, ldh, arrowschurvec, ldh, workd)
+     &        arrowschur, ldh, arrowschurvec, ldh, workd, house)
 c
 c        %---------------------------------------------%
 c        | Compute the B-norm of the updated residual. |

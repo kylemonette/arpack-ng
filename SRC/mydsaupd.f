@@ -62,7 +62,7 @@ c
 c\Usage:
 c  call mydsaupd
 c     ( IDO, BMAT, N, WHICH, NEV, TOL, RESID, NCV, V, LDV, IPARAM,
-c       IPNTR, WORKD, WORKL, LWORKL, INFO )
+c       IPNTR, WORKD, WORKL, LWORKL, INFO, HOUSE )
 c
 c\Arguments
 c  IDO     Integer.  (INPUT/OUTPUT)
@@ -275,6 +275,12 @@ c                   IPARAM(5) returns the size of the current Arnoldi
 c                   factorization. The user is advised to check that
 c                   enough workspace and array storage has been allocated.
 c
+c  HOUSE   Logical.  (INPUT)
+c          Passed straight through to mydsaup2 (and from there to
+c          mydsapps) at each shift-application step, selecting
+c          Householder (.TRUE.) vs. Givens (.FALSE.) tridiagonalization
+c          of the arrowhead matrix.
+c
 c
 c\Remarks
 c  1. The converged Ritz values are always returned in ascending
@@ -409,7 +415,7 @@ c-----------------------------------------------------------------------
 c
       subroutine mydsaupd
      &   ( ido, bmat, n, which, nev, tol, resid, ncv, v, ldv, iparam,
-     &     ipntr, workd, workl, lworkl, info )
+     &     ipntr, workd, workl, lworkl, info, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -423,6 +429,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       character  bmat*1, which*2
+      logical    house
       integer    ido, info, ldv, lworkl, n, ncv, nev
       Double precision
      &           tol
@@ -605,7 +612,7 @@ c
      &   ( ido, bmat, n, which, nev0, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, workl(ih), ldh, workl(ritz),
      &     workl(bounds), workl(iq), ldq, workl(iw), ipntr, workd,
-     &     info, .false. )
+     &     info, house )
 c
 c     %--------------------------------------------------%
 c     | ido .ne. 99 implies use of reverse communication |

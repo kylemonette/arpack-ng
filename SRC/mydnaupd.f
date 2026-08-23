@@ -59,7 +59,7 @@ c
 c\Usage:
 c  call mydnaupd
 c     ( IDO, BMAT, N, WHICH, NEV, TOL, RESID, NCV, V, LDV, IPARAM,
-c       IPNTR, WORKD, WORKL, LWORKL, INFO )
+c       IPNTR, WORKD, WORKL, LWORKL, INFO, HOUSE )
 c
 c\Arguments
 c  IDO     Integer.  (INPUT/OUTPUT)
@@ -279,6 +279,12 @@ c          = -9999: Could not build an Arnoldi factorization.
 c                   IPARAM(5) returns the size of the current Arnoldi
 c                   factorization.
 c
+c  HOUSE   Logical.  (INPUT)
+c          Passed straight through to mydnaup2 (and from there to
+c          mydnapps) at each shift-application step, selecting
+c          Householder (.TRUE.) vs. Givens (.FALSE.) reduction of the
+c          arrowhead matrix.
+c
 c\Remarks
 c  1. The computed Ritz values are approximate eigenvalues of OP. The
 c     selection of WHICH should be made with this in mind when
@@ -407,7 +413,7 @@ c-----------------------------------------------------------------------
 c
       subroutine mydnaupd
      &   ( ido, bmat, n, which, nev, tol, resid, ncv, v, ldv, iparam,
-     &     ipntr, workd, workl, lworkl, info )
+     &     ipntr, workd, workl, lworkl, info, house )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -421,6 +427,7 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       character  bmat*1, which*2
+      logical    house
       integer    ido, info, ldv, lworkl, n, ncv, nev
       Double precision
      &           tol
@@ -605,7 +612,7 @@ c
      &   ( ido, bmat, n, which, nev0, np, tol, resid, mode, iupd,
      &     ishift, mxiter, v, ldv, workl(ih), ldh, workl(ritzr),
      &     workl(ritzi), workl(bounds), workl(iq), ldq, workl(iw),
-     &     ipntr, workd, info )
+     &     ipntr, workd, info, house )
 c
 c     %--------------------------------------------------%
 c     | ido .ne. 99 implies use of reverse communication |
