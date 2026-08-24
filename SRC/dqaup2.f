@@ -174,7 +174,7 @@ c     | same bound H itself uses (the actual size in use at any      |
 c     | point is KPLUSP <= LDH).                                     |
 c     %--------------------------------------------------------------%
 c
-      integer    arrowierr, arrownblk, arrowpick, arrowm, iconj
+      integer    arrowierr, arrownblk, arrowpick, arrowm, iconj, i
       integer    arrowblockstart(ldh), arrowblocklen(ldh),
      &           arrowconsumed(ldh), arrowiwork(1)
       logical    arrowselect(ldh)

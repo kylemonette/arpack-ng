@@ -24,8 +24,11 @@ c              |b2 a2      |
 c              |b3    a3   |
 c              |b4       a4|
 c          OUTPUT: A contains the resulting symmetric tridiagonal
-c          matrix - subdiagonal in column 1 starting at A(2,1), main
-c          diagonal in column 2.
+c          matrix in its natural, dense-array positions -- diagonal
+c          entries A(i,i), subdiagonal/superdiagonal entries
+c          A(i+1,i) = A(i,i+1); all other entries are zero. (This is
+c          NOT the packed 2-column H-array convention used elsewhere
+c          in this fork, e.g. by drapps's own H argument.)
 c
 c  LDA     Integer.  (INPUT)
 c          Leading dimension of A exactly as declared in the calling

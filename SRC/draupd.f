@@ -384,7 +384,7 @@ c\Routines called:
 c     draup2 Local fork of dsaup2 (ARPACK routine that implements the
 c             Implicitly Restarted Arnoldi Iteration) that additionally
 c             computes the full tridiagonal eigendecomposition and
-c             passes it into drapps (called here with HOUSE=.FALSE.).
+c             passes it into drapps.
 c     dstats   ARPACK routine that initialize timing and other statistics
 c             variables.
 c     ivout   ARPACK utility routine that prints integers.
