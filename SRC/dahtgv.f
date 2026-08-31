@@ -79,7 +79,7 @@ c
      &           zero, one
       parameter (zero = 0.0D+0, one = 1.0D+0)
 c
-      integer    i, ii, j, jj, k, r, c, uppercol, ncols, cols(4), jhi
+      integer    i, j, jj, k, r, c, uppercol, ncols, cols(4), jhi
       Double precision
      &           cs, sn, rr, t1, t2
 c
@@ -160,23 +160,13 @@ c           | Apply to rows r,r+1, columns c:jhi. |
 c           %-------------------------------------%
 c
             jhi = min(m, c+3)
-            do 50 jj = c, jhi
-               t1       =  cs*a(r,jj) + sn*a(r+1,jj)
-               t2       = -sn*a(r,jj) + cs*a(r+1,jj)
-               a(r,jj)   = t1
-               a(r+1,jj) = t2
-   50       continue
+            call drot (jhi-c+1, a(r,c), lda, a(r+1,c), lda, cs, sn)
 c
 c           %------------------------------------------%
 c           | Apply to columns r,r+1, rows c:jhi.      |
 c           %------------------------------------------%
 c
-            do 60 ii = c, jhi
-               t1        = a(ii,r)*cs + a(ii,r+1)*sn
-               t2        = -a(ii,r)*sn + a(ii,r+1)*cs
-               a(ii,r)   = t1
-               a(ii,r+1) = t2
-   60       continue
+            call drot (jhi-c+1, a(c,r), 1, a(c,r+1), 1, cs, sn)
 c
             call drot (m, qmat(1,r), 1, qmat(1,r+1), 1, cs, sn)
 c
