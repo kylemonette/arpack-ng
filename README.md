@@ -1,4 +1,10 @@
-# arpack-ng [![arpack-ng CI/CD](https://github.com/opencollab/arpack-ng/actions/workflows/jobs.yml/badge.svg)](https://github.com/opencollab/arpack-ng/actions/workflows/jobs.yml)
+# arpack-ng
+
+[![build-ubuntu](https://github.com/opencollab/arpack-ng/actions/workflows/build-ubuntu.yml/badge.svg)](https://github.com/opencollab/arpack-ng/actions/workflows/build-ubuntu.yml)
+[![build-macos](https://github.com/opencollab/arpack-ng/actions/workflows/build-macos.yml/badge.svg)](https://github.com/opencollab/arpack-ng/actions/workflows/build-macos.yml)
+[![build-mingw](https://github.com/opencollab/arpack-ng/actions/workflows/build-mingw.yml/badge.svg)](https://github.com/opencollab/arpack-ng/actions/workflows/build-mingw.yml)
+[![build-alpine](https://github.com/opencollab/arpack-ng/actions/workflows/build-alpine.yml/badge.svg)](https://github.com/opencollab/arpack-ng/actions/workflows/build-alpine.yml)
+[![cross-build-ubuntu](https://github.com/opencollab/arpack-ng/actions/workflows/cross-build-ubuntu.yml/badge.svg)](https://github.com/opencollab/arpack-ng/actions/workflows/cross-build-ubuntu.yml)
 
 ARPACK-NG is a collection of Fortran77 subroutines designed to solve large scale eigenvalue problems.
 | mandatory dependencies | optional dependencies     | category      |
