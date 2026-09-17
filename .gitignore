@@ -80,3 +80,4 @@ VISUAL_STUDIO/bin/
 # Temporary files
 *~
 \#*#
+SRC/.DS_Store
