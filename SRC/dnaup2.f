@@ -649,7 +649,7 @@ c
             np = nconv
             go to 1100
 c
-         else if ( (nconv .lt. numcnv) .and. (ishift .eq. 1) ) then
+         else if ( (nconv .lt. numcnv)  ) then
 c
 c           %-------------------------------------------------%
 c           | Do not have all the requested eigenvalues yet.  |
