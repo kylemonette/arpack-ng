@@ -63,8 +63,6 @@ c     arscnd   ARPACK utility routine for timing.
 c     dmout    ARPACK utility routine that prints matrices
 c     dvout    ARPACK utility routine that prints vectors.
 c     dlartg   LAPACK routine that generates a plane rotation.
-c     dgghrd   LAPACK routine that reduces a matrix pencil to
-c              Hessenberg-triangular form.
 c     dhgeqz   LAPACK routine that computes the generalized real Schur
 c              form of a Hessenberg-triangular pencil.
 c     dtgevc   LAPACK routine that computes eigenvectors of a pencil in
@@ -98,18 +96,23 @@ c     Rice University
 c     Houston, Texas
 c
 c\Remarks
-c  1. Let m = KEV+NP and HBAR = [H; RNORM*e_m^T] = QH*[R; 0].
-c     A harmonic Ritz pair (theta,y) satisfies
+c  1. Let m = KEV+NP and HBAR = [H; RNORM*e_m^T] = QH*[R; 0], where
+c     QH = G_1*...*G_m is a product of plane rotations, G_j acting on
+c     coordinates j and j+1. A harmonic Ritz pair (theta,y) satisfies
 c         HBAR^T*(HBAR - theta*[I; 0])*y = 0,
-c     which is equivalent to R*y = theta*B^T*y with B = QH(1:m,1:m).
-c     The pencil (B^T, R) is reduced to generalized real Schur form,
-c     with eigenvalues mu = 1/theta, and right Schur vectors Z. The
-c     last column U of QH spans the null space of HBAR^T.
+c     which is equivalent to R*y = theta*QH(1:m,1:m)^T*y. Since
+c     QH(1:m,1:m) = P*D, with P = G_1*...*G_{m-1} restricted to the
+c     first m coordinates and D = diag(1,...,1,U(m+1)), the change of
+c     variables y = P*w gives the pencil (R*P, D). It is already in
+c     Hessenberg-triangular form, and is reduced to generalized real
+c     Schur form with eigenvalues theta and right Schur vectors Z (in
+c     the y coordinates). The last column U = [-s_m*P(:,m); c_m] of QH
+c     spans the null space of HBAR^T.
 c  2. The residual norm of the harmonic Ritz pair (theta, V*y), with
 c     ||y|| = 1, is ||HBAR*y - theta*[y; 0]||, computed directly.
-c  3. The smallest singular value of B is |U(m+1)|. If it falls below
-c     sqrt(eps), H is numerically singular and the harmonic values are
-c     unreliable, so Ritz values are used from then on.
+c  3. The smallest singular value of QH(1:m,1:m) is |U(m+1)|. If it
+c     falls below sqrt(eps), H is numerically singular and the harmonic
+c     values are unreliable, so Ritz values are used from then on.
 c
 c\EndLib
 c
@@ -187,12 +190,13 @@ c
       logical    select(ldh)
       Double precision
      &           work(8*ldh+16), eig1r(ldh), eig1i(ldh), bidx(ldh),
-     &           dif(2), qdum(1), sep1, sep2, pl, pr, cs, sn, rtmp, den
+     &           dif(2), qdum(1), sep1, sep2, pl, pr, rtmp,
+     &           rc(ldh), rs(ldh)
 c
 c     %---------------------------------------------------------------%
 c     | HS/HP:   Schur form (or the pencil's generalized Schur form). |
 c     | HZ:      right Schur vectors.                                 |
-c     | HQH:     orthogonal factor QH of HBAR (last column is U).     |
+c     | HU:      last column U of the orthogonal factor QH of HBAR.  |
 c     | HW:      HBAR, then HBAR times the eigenvectors.              |
 c     | HWR/HWI: eigenvalues in Schur order.                          |
 c     | HALR/HALI/HBET: generalized eigenvalues of the pencil.        |
@@ -201,7 +205,7 @@ c     | communication exit at the end of an iteration.                |
 c     %---------------------------------------------------------------%
 c
       Double precision, allocatable, save ::
-     &           hs(:,:), hp(:,:), hz(:,:), hqh(:,:), hw(:,:),
+     &           hs(:,:), hp(:,:), hz(:,:), hu(:), hw(:,:),
      &           hwr(:), hwi(:), halr(:), hali(:), hbet(:)
 c
 c     %----------------------%
@@ -210,7 +214,7 @@ c     %----------------------%
 c
       external   dcopy  , dgetv0 , dnaitr , dnconv , dngets ,
      &           dhapps , dqapps , dvout  , ivout  , arscnd ,
-     &           dmout  , dsortc , dlartg , dgghrd , dhgeqz ,
+     &           dmout  , dsortc , dlartg , dhgeqz ,
      &           dtgevc , dtgsen , dlahqr , dtrevc , dtrsen ,
      &           dlacpy , dlaset , dtrmm  , drot   ,
      &           daxpy  , dscal
@@ -287,13 +291,13 @@ c
 c
          if (allocated(hs)) then
             if (size(hs,1) .ne. ldh) then
-               deallocate (hs, hp, hz, hqh, hw, hwr, hwi, halr, hali,
+               deallocate (hs, hp, hz, hu, hw, hwr, hwi, halr, hali,
      &                     hbet)
             end if
          end if
          if (.not. allocated(hs)) then
             allocate (hs(ldh,ldh), hp(ldh,ldh), hz(ldh,ldh),
-     &                hqh(ldh+1,ldh+1), hw(ldh+1,ldh), hwr(ldh),
+     &                hu(ldh+1), hw(ldh+1,ldh), hwr(ldh),
      &                hwi(ldh), halr(ldh), hali(ldh), hbet(ldh))
          end if
       end if
@@ -424,37 +428,33 @@ c
          if (.not. harmfb) then
 c
 c           %-------------------------------------------------%
-c           | Givens QR of HBAR = [H; RNORM*e_m^T] in HW,     |
-c           | accumulating QH explicitly in HQH.              |
+c           | Givens QR of HBAR = [H; RNORM*e_m^T] in HW, with |
+c           | the rotations stored in RC and RS.               |
 c           %-------------------------------------------------%
 c
-            call dlacpy ('All', kplusp, kplusp, h, ldh, hw, ldh+1)
-            do 21 j = 1, kplusp
-               hw(kplusp+1,j) = zero
+            call dlacpy ('Upper', kplusp, kplusp, h, ldh, hw, ldh+1)
+            do 21 j = 1, kplusp-1
+               hw(j+1,j) = h(j+1,j)
    21       continue
             hw(kplusp+1,kplusp) = rnorm
-            call dlaset ('All', kplusp+1, kplusp+1, zero, one, hqh,
-     &                   ldh+1)
             do 22 j = 1, kplusp
-               call dlartg (hw(j,j), hw(j+1,j), cs, sn, rtmp)
+               call dlartg (hw(j,j), hw(j+1,j), rc(j), rs(j), rtmp)
                hw(j,j) = rtmp
-               hw(j+1,j) = zero
                if (j .lt. kplusp) then
                   call drot (kplusp-j, hw(j,j+1), ldh+1, hw(j+1,j+1),
-     &                       ldh+1, cs, sn)
+     &                       ldh+1, rc(j), rs(j))
                end if
-               call drot (j+1, hqh(1,j), 1, hqh(1,j+1), 1, cs, sn)
    22       continue
 c
 c           %------------------------------------------------%
-c           | Switch to Ritz values if |U(m+1)| is too small |
-c           | (\Remarks 3).                                  |
+c           | Switch to Ritz values if |U(m+1)| = |RC(m)| is |
+c           | too small (\Remarks 3).                        |
 c           %------------------------------------------------%
 c
-            if (abs(hqh(kplusp+1,kplusp+1)) .lt. harmtol) then
+            if (abs(rc(kplusp)) .lt. harmtol) then
                harmfb = .true.
                if (msglvl .gt. 0) then
-                  call dvout (logfil, 1, [hqh(kplusp+1,kplusp+1)],
+                  call dvout (logfil, 1, [rc(kplusp)],
      &                 ndigit, '_haup2: |U(m+1)| too small, using Ritz')
                end if
             end if
@@ -463,20 +463,32 @@ c
          if (.not. harmfb) then
 c
 c           %-------------------------------------------------%
-c           | Generalized real Schur form (HS,HP) of the      |
-c           | pencil (B^T, R), with right Schur vectors HZ.   |
+c           | Hessenberg-triangular pencil (R*P, D) in HS, HP, |
+c           | with HZ = P and HU = U (\Remarks 1).             |
 c           %-------------------------------------------------%
 c
-            do 24 j = 1, kplusp
-               do 23 i = 1, kplusp
-                  hs(i,j) = hqh(j,i)
-   23          continue
+            call dlaset ('Lower', kplusp-1, kplusp-1, zero, zero,
+     &                   hs(2,1), ldh)
+            call dlacpy ('Upper', kplusp, kplusp, hw, ldh+1, hs, ldh)
+            call dlaset ('All', kplusp, kplusp, zero, one, hz, ldh)
+            do 23 j = 1, kplusp-1
+               call drot (j+1, hs(1,j), 1, hs(1,j+1), 1, rc(j), rs(j))
+               call drot (j+1, hz(1,j), 1, hz(1,j+1), 1, rc(j), rs(j))
+   23       continue
+            do 24 i = 1, kplusp
+               hu(i) = -rs(kplusp) * hz(i,kplusp)
    24       continue
-            call dlaset ('All', kplusp, kplusp, zero, zero, hp, ldh)
-            call dlacpy ('Upper', kplusp, kplusp, hw, ldh+1, hp, ldh)
+            hu(kplusp+1) = rc(kplusp)
+            call dlaset ('All', kplusp, kplusp, zero, one, hp, ldh)
+            hp(kplusp,kplusp) = rc(kplusp)
 c
-            call dgghrd ('N', 'I', kplusp, 1, kplusp, hs, ldh, hp, ldh,
-     &                   qdum, 1, hz, ldh, ierr)
+c           %-------------------------------------------------%
+c           | Generalized real Schur form (HS,HP), with right  |
+c           | Schur vectors HZ in the y coordinates, and       |
+c           | theta = (ALPHAR + i*ALPHAI)/BETA. BETA is        |
+c           | nonzero since |U(m+1)| > 0.                      |
+c           %-------------------------------------------------%
+c
             call dhgeqz ('S', 'N', 'V', kplusp, 1, kplusp, hs, ldh,
      &                   hp, ldh, halr, hali, hbet, qdum, 1, hz, ldh,
      &                   work, lwork, ierr)
@@ -485,15 +497,9 @@ c
                go to 1200
             end if
 c
-c           %------------------------------------------------%
-c           | theta = 1/mu = BETA/(ALPHAR + i*ALPHAI). The    |
-c           | denominator is nonzero since |U(m+1)| > 0.      |
-c           %------------------------------------------------%
-c
             do 25 j = 1, kplusp
-               den = halr(j)**2 + hali(j)**2
-               ritzr(j) = hbet(j) * halr(j) / den
-               ritzi(j) = -hbet(j) * hali(j) / den
+               ritzr(j) = halr(j) / hbet(j)
+               ritzi(j) = hali(j) / hbet(j)
    25       continue
 c
 c           %------------------------------------------------%
@@ -944,7 +950,7 @@ c
             end if
 c
             call dhapps (n, nev, np, v, ldv, h, ldh, resid, rnorm,
-     &                   hz, ldh, hqh(1,kplusp+1))
+     &                   hz, ldh, hu)
          else
 c
 c           %------------------------------------------------%
