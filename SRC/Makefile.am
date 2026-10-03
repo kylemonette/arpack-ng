@@ -6,7 +6,8 @@ SSRC = snaitr.f snapps.f snaup2.f snaupd.f snconv.f sneigh.f sneupd.f sngets.f s
 
 DSRC = dnaitr.f dnapps.f dnaup2.f dnaupd.f dnconv.f dneigh.f dneupd.f dngets.f dstatn.f \
        dsaitr.f dsapps.f dsaup2.f dsaupd.f dsconv.f dseigt.f dseupd.f dsgets.f dstats.f \
-       dgetv0.f dsortc.f dsortr.f dsesrt.f dstqrb.f drapps.f draup2.f draupd.f dahtgv.f
+       dgetv0.f dsortc.f dsortr.f dsesrt.f dstqrb.f drapps.f draup2.f draupd.f dahtgv.f \
+       dhapps.f dhaup2.f dhaupd.f
 
 CSRC = cnaitr.f cnapps.f cnaup2.f cnaupd.f cneigh.f cneupd.f cngets.f cstatn.f \
        cgetv0.f csortc.f ccdotc.f
