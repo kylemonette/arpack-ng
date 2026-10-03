@@ -17,7 +17,7 @@ c  where HNEW_{k} is upper Hessenberg.
 c
 c\Usage:
 c  call dhapps
-c     ( N, KEV, NP, V, LDV, H, LDH, RESID, Z, LDZ, U, WORKD )
+c     ( N, KEV, NP, V, LDV, H, LDH, RESID, RNORM, Z, LDZ, U )
 c
 c\Arguments
 c  N       Integer.  (INPUT)
@@ -52,6 +52,9 @@ c  RESID   Double precision array of length N.  (INPUT/OUTPUT)
 c          INPUT: RESID contains the residual vector r_{m}.
 c          OUTPUT: RESID is the updated residual vector rnew_{k}.
 c
+c  RNORM   Double precision scalar.  (INPUT)
+c          B-norm of the input RESID.
+c
 c  Z       Double precision (KEV+NP) by (KEV+NP) array.  (INPUT)
 c          Right Schur vectors of the harmonic pencil, ordered so the
 c          first KEV columns span the desired harmonic Ritz vectors.
@@ -63,9 +66,7 @@ c          program.
 c
 c  U       Double precision array of length KEV+NP+1.  (INPUT)
 c          Unit vector spanning the null space of HBAR^T, where
-c          HBAR = [H; ||RESID||*e_{m}^T].
-c
-c  WORKD   Double precision work array of length N.  (WORKSPACE)
+c          HBAR = [H; RNORM*e_{m}^T].
 c
 c\EndDoc
 c
@@ -88,6 +89,7 @@ c     dlaset  LAPACK matrix initialization routine.
 c     dlacpy  LAPACK matrix copy routine.
 c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
 c     dgemm   Level 3 BLAS routine for matrix-matrix multiplication.
+c     dtrmm   Level 3 BLAS routine for triangular matrix times matrix.
 c     dcopy   Level 1 BLAS that copies one vector to another.
 c     daxpy   Level 1 BLAS that computes a vector triad.
 c     dscal   Level 1 BLAS that scales a vector.
@@ -95,7 +97,7 @@ c     dnrm2   Level 1 BLAS that computes the norm of a vector.
 c     dvout   ARPACK utility routine that prints vectors.
 c
 c\Remarks
-c  1. Let HBAR = [H; RNORM*e_{m}^T] with RNORM = ||RESID||, and
+c  1. Let HBAR = [H; RNORM*e_{m}^T] and
 c     Zk = Z(:,1:KEV). Since Zk spans an invariant subspace of the
 c     harmonic matrix, HBAR*Zk lies in the span of the KEV+1
 c     orthonormal columns of PK = [[Zk; 0] p], where p is U
@@ -114,7 +116,7 @@ c
 c-----------------------------------------------------------------------
 c
       subroutine dhapps
-     &   ( n, kev, np, v, ldv, h, ldh, resid, z, ldz, u, workd )
+     &   ( n, kev, np, v, ldv, h, ldh, resid, rnorm, z, ldz, u )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -128,6 +130,8 @@ c     | Scalar Arguments |
 c     %------------------%
 c
       integer    kev, ldh, ldv, ldz, n, np
+      Double precision
+     &           rnorm
 c
 c     %-----------------%
 c     | Array Arguments |
@@ -135,7 +139,7 @@ c     %-----------------%
 c
       Double precision
      &           h(ldh,kev+np), resid(n), u(kev+np+1), v(ldv,kev+np),
-     &           workd(n), z(ldz,kev+np)
+     &           z(ldz,kev+np)
 c
 c     %------------%
 c     | Parameters |
@@ -154,7 +158,7 @@ c
       save       initd
       data       initd /.false./
       Double precision
-     &           rnorm, betak, pnorm, qwork(1)
+     &           betak, pnorm, qwork(1)
 c
 c     %-----------------------%
 c     | Local Array Arguments |
@@ -163,7 +167,7 @@ c
       Double precision
      &           pvec(kev+np+1), coef(kev), hz(kev+np+1,kev),
      &           hk(kev+1,kev), drot(kev+1,kev+1), hbuf(kev+1,kev+1),
-     &           tau(kev), qk(kev,kev), qfinal(kev+np,kev)
+     &           tau(kev), qk(kev,kev), qfinal(kev+np,kev+1)
       Double precision, allocatable, save :: housework(:), vnew(:,:)
 c
 c     %----------------------%
@@ -171,7 +175,7 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, daxpy, dscal, dlaset, dlacpy, dgemv, dgemm,
-     &           dgehrd, dorghr, arscnd, dvout
+     &           dtrmm, dgehrd, dorghr, arscnd, dvout
 c
 c     %--------------------%
 c     | External Functions |
@@ -230,8 +234,6 @@ c
       end if
       if (.not. allocated(housework)) allocate (housework(lwork))
 c
-      rnorm = dnrm2 (n, resid, 1)
-c
 c     %--------------------------------------------------%
 c     | PVEC = U orthogonalized against [Zk; 0], with    |
 c     | two passes of classical Gram-Schmidt.            |
@@ -247,15 +249,19 @@ c
       pnorm = dnrm2 (kplusp+1, pvec, 1)
       call dscal (kplusp+1, one/pnorm, pvec, 1)
 c
-c     %-----------------------------------------%
-c     | HZ = HBAR*Zk, HBAR = [H; RNORM*e_m^T]    |
-c     %-----------------------------------------%
+c     %--------------------------------------------------%
+c     | HZ = HBAR*Zk, HBAR = [H; RNORM*e_m^T], using the |
+c     | upper triangle of H and then its subdiagonal.    |
+c     %--------------------------------------------------%
 c
-      call dgemm ('N', 'N', kplusp, kev, kplusp, one, h, ldh,
-     &            z, ldz, zero, hz, kplusp+1)
-      do 20 j = 1, kev
-         hz(kplusp+1,j) = rnorm * z(kplusp,j)
+      call dlacpy ('All', kplusp, kev, z, ldz, hz, kplusp+1)
+      call dtrmm ('Left', 'Upper', 'No transpose', 'Non-unit', kplusp,
+     &            kev, one, h, ldh, hz, kplusp+1)
+      do 20 i = 1, kplusp-1
+         call daxpy (kev, h(i+1,i), z(i,1), ldz, hz(i+1,1), kplusp+1)
    20 continue
+      call dcopy (kev, z(kplusp,1), ldz, hz(kplusp+1,1), kplusp+1)
+      call dscal (kev, rnorm, hz(kplusp+1,1), kplusp+1)
 c
 c     %-----------------------------------------%
 c     | HK = PK^T*HZ, PK = [[Zk; 0] PVEC]        |
@@ -313,45 +319,32 @@ c
          call dcopy (kev, drot(2,kev+2-j), -1, qk(1,j), 1)
    90 continue
 c
-c     %---------------------------------------%
-c     | QFINAL = Zk*Qk, so that VNEW = V*QFINAL |
-c     %---------------------------------------%
+c     %--------------------------------------------------------%
+c     | QFINAL = [Zk*Qk PVEC(1:m)], so that V*QFINAL holds the |
+c     | new V and, in its last column, V*PVEC(1:m).            |
+c     %--------------------------------------------------------%
 c
       call dgemm ('N', 'N', kplusp, kev, kev, one, z, ldz,
      &            qk, kev, zero, qfinal, kplusp)
-c
-c     %--------------------------------------------------------%
-c     | New residual direction [V RESID/RNORM]*PVEC, formed    |
-c     | before V is overwritten.                               |
-c     %--------------------------------------------------------%
-c
-      call dgemv ('N', n, kplusp, one, v, ldv, pvec, 1,
-     &            zero, workd, 1)
-      call daxpy (n, pvec(kplusp+1)/rnorm, resid, 1, workd, 1)
-c
-c     %------------------------------------%
-c     | Update V: V(:,1:kev) = V*QFINAL.   |
-c     %------------------------------------%
+      call dcopy (kplusp, pvec, 1, qfinal(1,kev+1), 1)
 c
       if (allocated(vnew)) then
-         if (size(vnew,1) .ne. n .or. size(vnew,2) .lt. kev)
+         if (size(vnew,1) .ne. n .or. size(vnew,2) .lt. kev+1)
      &      deallocate (vnew)
       end if
-      if (.not. allocated(vnew)) allocate (vnew(n,kev))
-      call dgemm ('N', 'N', n, kev, kplusp, one, v, ldv, qfinal,
+      if (.not. allocated(vnew)) allocate (vnew(n,kev+1))
+      call dgemm ('N', 'N', n, kev+1, kplusp, one, v, ldv, qfinal,
      &            kplusp, zero, vnew, n)
+c
+c     %--------------------------------------------------------%
+c     | RESID = BETAK*w, where w = [V RESID/RNORM]*PVEC is a   |
+c     | unit vector orthogonal to the new V.                   |
+c     %--------------------------------------------------------%
+c
+      call dscal (n, betak*pvec(kplusp+1)/rnorm, resid, 1)
+      call daxpy (n, betak, vnew(1,kev+1), 1, resid, 1)
+c
       call dlacpy ('All', n, kev, vnew, n, v, ldv)
-c
-c     %--------------------------------------------------------%
-c     | One reorthogonalization of the residual direction      |
-c     | against the new V, then RESID = BETAK*WORKD/||WORKD||. |
-c     %--------------------------------------------------------%
-c
-      call dgemv ('T', n, kev, one, v, ldv, workd, 1, zero, coef, 1)
-      call dgemv ('N', n, kev, -one, v, ldv, coef, 1, one, workd, 1)
-      pnorm = dnrm2 (n, workd, 1)
-      call dcopy (n, workd, 1, resid, 1)
-      call dscal (n, betak/pnorm, resid, 1)
 c
       if (msglvl .gt. 1) then
          call dvout (logfil, 1, [betak], ndigit,

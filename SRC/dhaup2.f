@@ -80,8 +80,8 @@ c     dlamch   LAPACK routine that determines machine constants.
 c     dlapy2   LAPACK routine to compute sqrt(x**2+y**2) carefully.
 c     dlacpy   LAPACK matrix copy routine.
 c     dlaset   LAPACK matrix initialization routine.
-c     dgemm    Level 3 BLAS routine for matrix-matrix multiplication.
-c     drot    Level 1 BLAS that applies a plane rotation.
+c     dtrmm    Level 3 BLAS routine for triangular matrix times matrix.
+c     drot     Level 1 BLAS that applies a plane rotation.
 c     daxpy    Level 1 BLAS that computes a vector triad.
 c     dcopy    Level 1 BLAS that copies one vector to another.
 c     ddot     Level 1 BLAS that computes the scalar product of two
@@ -212,7 +212,7 @@ c
      &           dhapps , dqapps , dvout  , ivout  , arscnd ,
      &           dmout  , dsortc , dlartg , dgghrd , dhgeqz ,
      &           dtgevc , dtgsen , dlahqr , dtrevc , dtrsen ,
-     &           dlacpy , dlaset , dgemm  , drot   ,
+     &           dlacpy , dlaset , dtrmm  , drot   ,
      &           daxpy  , dscal
 c
 c     %--------------------%
@@ -561,14 +561,19 @@ c
 c
 c           %------------------------------------------------%
 c           | Residual norms ||HBAR*y - theta*[y; 0]||        |
-c           | (\Remarks 2), with HW = HBAR*Q.                 |
+c           | (\Remarks 2), with HW = HBAR*Q formed from the  |
+c           | upper triangle of H and then its subdiagonal.   |
 c           %------------------------------------------------%
 c
-            call dgemm ('N', 'N', kplusp, kplusp, kplusp, one, h, ldh,
-     &                  q, ldq, zero, hw, ldh+1)
-            do 27 j = 1, kplusp
-               hw(kplusp+1,j) = rnorm * q(kplusp,j)
+            call dlacpy ('All', kplusp, kplusp, q, ldq, hw, ldh+1)
+            call dtrmm ('Left', 'Upper', 'No transpose', 'Non-unit',
+     &                  kplusp, kplusp, one, h, ldh, hw, ldh+1)
+            do 27 i = 1, kplusp-1
+               call daxpy (kplusp, h(i+1,i), q(i,1), ldq, hw(i+1,1),
+     &                     ldh+1)
    27       continue
+            call dcopy (kplusp, q(kplusp,1), ldq, hw(kplusp+1,1), ldh+1)
+            call dscal (kplusp, rnorm, hw(kplusp+1,1), ldh+1)
 c
             iconj = 0
             do 28 j = 1, kplusp
@@ -938,8 +943,8 @@ c
                go to 1200
             end if
 c
-            call dhapps (n, nev, np, v, ldv, h, ldh, resid, hz, ldh,
-     &                   hqh(1,kplusp+1), workd)
+            call dhapps (n, nev, np, v, ldv, h, ldh, resid, rnorm,
+     &                   hz, ldh, hqh(1,kplusp+1))
          else
 c
 c           %------------------------------------------------%
