@@ -138,10 +138,13 @@ c
             call drot (m, d(c,1), ldd, d(cp1,1), ldd, sn, -cs)
 c
 c           %--------------------------------------------------------%
-c           | Accumulate: Q(:,c:c+1) <- Q(:,c:c+1) * G'              |
+c           | Accumulate: Q(:,c:c+1) <- Q(:,c:c+1) * G'. After the   |
+c           | sweeps m,...,r+1, columns c and c+1 of Q are zero      |
+c           | below row min(m-1, c+1+m-r).                           |
 c           %--------------------------------------------------------%
 c
-            call drot (m, q(1,c), 1, q(1,cp1), 1, sn, -cs)
+            call drot (min(m-1, cp1+m-r), q(1,c), 1, q(1,cp1), 1,
+     &                 sn, -cs)
 c
    90    continue
   100 continue

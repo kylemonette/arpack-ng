@@ -21,7 +21,7 @@ c
 c
 c\Usage:
 c  call drapps
-c     ( N, KEV, NP, V, LDV, H, LDH, RESID, Q, LDQ,
+c     ( N, KEV, NP, V, LDV, H, LDH, RESID, RNORM, Q, LDQ,
 c       EIGVAL, EIGVEC, LDEIGVEC, WORKD, HOUSE )
 c
 c\Arguments
@@ -58,6 +58,9 @@ c
 c  RESID   Double precision array of length (N).  (INPUT/OUTPUT)
 c          INPUT: RESID contains the the residual vector r_{k+p}.
 c          OUTPUT: RESID is the updated residual vector rnew_{k}.
+c
+c  RNORM   Double precision scalar.  (INPUT)
+c          B-norm of the input RESID.
 c
 c  Q       Double precision KEV+NP by KEV+NP work array.  (WORKSPACE,
 c          unused -- kept for interface parity with DSAPPS.)
@@ -122,7 +125,6 @@ c     dsytrd  LAPACK routine that reduces a symmetric matrix to
 c             tridiagonal form via Householder reflectors (HOUSE=.TRUE.).
 c     dorgtr  LAPACK routine that generates the explicit orthogonal
 c             matrix from DSYTRD's packed reflectors (HOUSE=.TRUE.).
-c     dnrm2   Level 1 BLAS that computes the Euclidean norm of a vector.
 c     dlaset  LAPACK matrix initialization routine.
 c     dlacpy  LAPACK matrix copy routine.
 c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
@@ -160,7 +162,7 @@ c
 c-----------------------------------------------------------------------
 c
       subroutine drapps
-     &   ( n, kev, np, v, ldv, h, ldh, resid, q, ldq,
+     &   ( n, kev, np, v, ldv, h, ldh, resid, rnorm, q, ldq,
      &     eigval, eigvec, ldeigvec, workd, house )
 c
 c     %----------------------------------------------------%
@@ -176,6 +178,8 @@ c     %------------------%
 c
       integer    kev, ldeigvec, ldh, ldq, ldv, n, np
       logical    house
+      Double precision
+     &           rnorm
 c
 c     %-----------------%
 c     | Array Arguments |
@@ -203,7 +207,7 @@ c
       save       initd
       data       initd /.false./
       Double precision
-     &           rnorm, betak, qwork(1)
+     &           betak, qwork(1)
       Double precision
      &           drot(kev+1,kev+1), qrot(kev+1,kev+1), qk1(kev,kev),
      &           dvec(kev+1), evec(kev), tau(kev),
@@ -216,14 +220,6 @@ c     %----------------------%
 c
       external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
      &           dahtgv, dsytrd, dorgtr, arscnd
-c
-c     %--------------------%
-c     | External Functions |
-c     %--------------------%
-c
-      Double precision
-     &           dnrm2
-      external   dnrm2
 c
 c     %-----------------------%
 c     | Executable Statements |
@@ -295,14 +291,6 @@ c     | result. See "A Unified View of Arrowhead Matrix             |
 c     | Transformations and Lanczos Restarts", Baglama, Monette,    |
 c     | Perovic (2026).                                             |
 c     %-------------------------------------------------------------%
-c
-c     %------------------------------------------------------%
-c     | RNORM: the current residual norm, needed both as the |
-c     | arrowhead spike scale and to normalize the residual  |
-c     | direction when forming the updated residual below.   |
-c     %------------------------------------------------------%
-c
-      rnorm = dnrm2(n, resid, 1)
 c
 c     %------------------------------------------------------------%
 c     | Directly build the ALREADY 180-degree-rotated (KEV+1) by   |

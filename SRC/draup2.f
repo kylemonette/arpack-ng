@@ -160,9 +160,13 @@ c     dgetv0  ARPACK initial vector generation routine.
 c     dsaitr  ARPACK Lanczos factorization routine.
 c     dsapps  ARPACK application of implicit shifts routine.
 c     dsconv  ARPACK convergence of Ritz values routine.
+c     dstemr  LAPACK routine that computes the full eigendecomposition
+c             of a symmetric tridiagonal matrix by the MRRR algorithm
+c             (also supplies the Ritz values and error bounds here,
+c             replacing dseigt).
 c     dsteqr  LAPACK routine that computes the full eigendecomposition
-c             of a symmetric tridiagonal matrix (also supplies the Ritz
-c             values and error bounds here, replacing dseigt).
+c             of a symmetric tridiagonal matrix by the QR algorithm,
+c             used only if dstemr fails.
 c     dsgets  ARPACK reorder Ritz values and error bounds routine.
 c     dsortr  ARPACK sorting routine.
 c     ivout   ARPACK utility routine that prints integers.
@@ -260,13 +264,15 @@ c     | ARROWEIGVAL/ARROWEIGVEC carry data from the computation site |
 c     | to the shift site, across the possible ISHIFT=0 reverse-     |
 c     | communication exit in between, so they are SAVEd allocatables|
 c     | (re-sized if LDH ever changes between problems).             |
-c     | ARROWSUBD/ARROWWORK are scratch used only at the computation |
-c     | site itself.                                                 |
+c     | ARROWDIAG/ARROWSUBD/ARROWWORK/ARROWIWORK/ARROWSUPP are       |
+c     | scratch used only at the computation site itself.            |
 c     %--------------------------------------------------------------%
 c
-      integer    arrowierr
+      logical    arrowtryrac
+      integer    arrowierr, arrowm, arrowiwork(10*ldh),
+     &           arrowsupp(2*ldh)
       Double precision
-     &           arrowsubd(ldh), arrowwork(2*ldh)
+     &           arrowdiag(ldh), arrowsubd(ldh), arrowwork(18*ldh)
       Double precision, allocatable, save ::
      &           arroweigval(:), arroweigvec(:,:)
 c
@@ -289,7 +295,8 @@ c     | External Subroutines |
 c     %----------------------%
 c
       external   dcopy, dgetv0, dsaitr, dscal, dsconv, dsgets,
-     &           drapps, dsortr, dvout, ivout, arscnd, dswap, dsteqr
+     &           drapps, dsortr, dvout, ivout, arscnd, dswap, dstemr,
+     &           dsteqr
 c
 c     %--------------------%
 c     | External Functions |
@@ -518,12 +525,28 @@ c
             allocate (arroweigval(ldh), arroweigvec(ldh,ldh))
          end if
 c
-         call dcopy (kplusp, h(1,2), 1, arroweigval, 1)
+c        %--------------------------------------------------------%
+c        | All eigenpairs by MRRR in O(KPLUSP**2) operations, in  |
+c        | ascending order. If MRRR fails, use the QR algorithm.  |
+c        %--------------------------------------------------------%
+c
+         call dcopy (kplusp, h(1,2), 1, arrowdiag, 1)
          if (kplusp .gt. 1) then
             call dcopy (kplusp-1, h(2,1), 1, arrowsubd, 1)
          end if
-         call dsteqr ('I', kplusp, arroweigval, arrowsubd,
-     &                arroweigvec, ldh, arrowwork, arrowierr)
+         arrowtryrac = .true.
+         call dstemr ('V', 'A', kplusp, arrowdiag, arrowsubd, zero,
+     &                zero, 0, 0, arrowm, arroweigval, arroweigvec, ldh,
+     &                kplusp, arrowsupp, arrowtryrac, arrowwork,
+     &                18*ldh, arrowiwork, 10*ldh, arrowierr)
+         if (arrowierr .ne. 0) then
+            call dcopy (kplusp, h(1,2), 1, arroweigval, 1)
+            if (kplusp .gt. 1) then
+               call dcopy (kplusp-1, h(2,1), 1, arrowsubd, 1)
+            end if
+            call dsteqr ('I', kplusp, arroweigval, arrowsubd,
+     &                   arroweigvec, ldh, arrowwork, arrowierr)
+         end if
 c
          if (arrowierr .ne. 0) then
             info = -8
@@ -888,7 +911,7 @@ c        | it is done, we have a Lanczos factorization of length   |
 c        | NEV.                                                    |
 c        %---------------------------------------------------------%
 c
-         call drapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
+         call drapps (n, nev, np, v, ldv, h, ldh, resid, rnorm, q, ldq,
      &        arrowsortval, arrowsortvec, ldh, workd, house)
 c
 c        %---------------------------------------------%

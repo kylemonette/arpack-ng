@@ -21,7 +21,7 @@ c
 c
 c\Usage:
 c  call dqapps
-c     ( N, KEV, NP, V, LDV, H, LDH, RESID, Q, LDQ,
+c     ( N, KEV, NP, V, LDV, H, LDH, RESID, RNORM, Q, LDQ,
 c       TSCHUR, LDTSCHUR, QSCHUR, LDQSCHUR, WORKD, HOUSE )
 c
 c\Arguments
@@ -63,6 +63,9 @@ c
 c  RESID   Double precision array of length N.  (INPUT/OUTPUT)
 c          INPUT: RESID contains the residual vector r_{k+p}.
 c          OUTPUT: RESID is the updated residual vector rnew_{k}.
+c
+c  RNORM   Double precision scalar.  (INPUT)
+c          B-norm of the input RESID.
 c
 c  Q       Double precision KEV+NP by KEV+NP work array.  (WORKSPACE,
 c          unused -- kept for interface parity with DNAPPS.)
@@ -137,7 +140,6 @@ c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
 c     dgemm   Level 3 BLAS routine for matrix-matrix multiplication.
 c     dcopy   Level 1 BLAS that copies one vector to another.
 c     dscal   Level 1 BLAS that scales a vector.
-c     dnrm2   Level 1 BLAS that computes the Euclidean norm of a vector.
 c
 c\Remarks
 c  1. This routine replaces DNAPPS's classical implicit-shift bulge-
@@ -150,7 +152,7 @@ c
 c         D = | TSCHUR(1:KEV,1:KEV)      c*QSCHUR(m,1:KEV)' |
 c             | c*QSCHUR(m,1:KEV)              delta        |
 c
-c     where m = KEV+NP and c = RNORM = ||RESID||, reduce it to upper
+c     where m = KEV+NP and c = RNORM, reduce it to upper
 c     Hessenberg form, and read the updated H, V, and RESID off that
 c     result. "delta" is mathematically arbitrary, TSCHUR(m,m) is
 c     used purely as a convenient, well-scaled placeholder.
@@ -175,7 +177,7 @@ c
 c-----------------------------------------------------------------------
 c
       subroutine dqapps
-     &   ( n, kev, np, v, ldv, h, ldh, resid, q, ldq,
+     &   ( n, kev, np, v, ldv, h, ldh, resid, rnorm, q, ldq,
      &     tschur, ldtschur, qschur, ldqschur, workd, house )
 c
 c     %----------------------------------------------------%
@@ -191,6 +193,8 @@ c     %------------------%
 c
       integer    kev, ldh, ldq, ldqschur, ldtschur, ldv, n, np
       logical    house
+      Double precision
+     &           rnorm
 c
 c     %-----------------%
 c     | Array Arguments |
@@ -218,7 +222,7 @@ c
       save       initd
       data       initd /.false./
       Double precision
-     &           rnorm, betak, qwork(1)
+     &           betak, qwork(1)
       Double precision
      &           d(kev+1,kev+1), qarrow(kev+1,kev+1),
      &           drot(kev+1,kev+1), hbuf(kev+1,kev+1), tau(kev),
@@ -231,14 +235,6 @@ c     %----------------------%
 c
       external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
      &           dahhgv, dgehrd, dorghr, arscnd
-c
-c     %--------------------%
-c     | External Functions |
-c     %--------------------%
-c
-      Double precision
-     &           dnrm2
-      external   dnrm2
 c
 c     %-----------------------%
 c     | Executable Statements |
@@ -296,14 +292,6 @@ c
          end if
          if (.not. allocated(housework)) allocate (housework(lwork))
       end if
-c
-c     %------------------------------------------------------%
-c     | RNORM: the current residual norm, needed both as the |
-c     | arrowhead spike scale and to normalize the residual  |
-c     | direction when forming the updated residual below.   |
-c     %------------------------------------------------------%
-c
-      rnorm = dnrm2(n, resid, 1)
 c
       if (house) then
 c

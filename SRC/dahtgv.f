@@ -140,11 +140,13 @@ c
             a(r,i+1) = t2
    30    continue
 c
-c        %----------------------%
-c        | Accumulate into Q.  |
-c        %----------------------%
+c        %-------------------------------------------------%
+c        | Accumulate into Q. Only columns i:m of QMAT are |
+c        | rotated in this step, and they are zero above   |
+c        | row i.                                          |
+c        %-------------------------------------------------%
 c
-         call drot (m, qmat(1,i), 1, qmat(1,i+1), 1, cs, sn)
+         call drot (m-i+1, qmat(i,i), 1, qmat(i,i+1), 1, cs, sn)
 c
 c        %--------------------------------%
 c        | Chase the bulge created above. |
@@ -168,7 +170,7 @@ c           %------------------------------------------%
 c
             call drot (jhi-c+1, a(c,r), 1, a(c,r+1), 1, cs, sn)
 c
-            call drot (m, qmat(1,r), 1, qmat(1,r+1), 1, cs, sn)
+            call drot (m-i+1, qmat(i,r), 1, qmat(i,r+1), 1, cs, sn)
 c
    90    continue
 c

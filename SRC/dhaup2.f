@@ -966,8 +966,8 @@ c
                go to 1200
             end if
 c
-            call dqapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
-     &                   hs, ldh, hz, ldh, workd, .true.)
+            call dqapps (n, nev, np, v, ldv, h, ldh, resid, rnorm,
+     &                   q, ldq, hs, ldh, hz, ldh, workd, .true.)
          end if
 c
 c        %---------------------------------------------%

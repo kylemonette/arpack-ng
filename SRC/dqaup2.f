@@ -836,7 +836,7 @@ c        | Schur eigenpairs, reduce it to upper Hessenberg form, and |
 c        | read the updated H, V, and RESID off that result.         |
 c        %-----------------------------------------------------------%
 c
-         call dqapps (n, nev, np, v, ldv, h, ldh, resid, q, ldq,
+         call dqapps (n, nev, np, v, ldv, h, ldh, resid, rnorm, q, ldq,
      &        arrowschur, ldh, arrowschurvec, ldh, workd, house)
 c
 c        %---------------------------------------------%
