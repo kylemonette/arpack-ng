@@ -107,7 +107,9 @@ c     variables y = P*w gives the pencil (R*P, D). It is already in
 c     Hessenberg-triangular form, and is reduced to generalized real
 c     Schur form with eigenvalues theta and right Schur vectors Z (in
 c     the y coordinates). The last column U = [-s_m*P(:,m); c_m] of QH
-c     spans the null space of HBAR^T.
+c     spans the null space of HBAR^T. Equivalently, P^T*G*P = D^{-1}*R*P
+c     for the harmonic matrix G = H + RNORM**2*H^{-T}*e_m*e_m^T of
+c     Reference 3; the pencil avoids the division by U(m+1).
 c  2. The residual norm of the harmonic Ritz pair (theta, V*y), with
 c     ||y|| = 1, is ||HBAR*y - theta*[y; 0]||, computed directly.
 c  3. The smallest singular value of QH(1:m,1:m) is |U(m+1)|. If it

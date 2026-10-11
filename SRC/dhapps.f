@@ -166,8 +166,8 @@ c     %-----------------------%
 c
       Double precision
      &           pvec(kev+np+1), coef(kev), hz(kev+np+1,kev),
-     &           hk(kev+1,kev), drot(kev+1,kev+1), hbuf(kev+1,kev+1),
-     &           tau(kev), qk(kev,kev), qfinal(kev+np,kev+1)
+     &           hk(kev+1,kev), drot(kev+1,kev+1), tau(kev),
+     &           qk(kev,kev), qfinal(kev+np,kev+1)
       Double precision, allocatable, save :: housework(:), vnew(:,:)
 c
 c     %----------------------%
@@ -278,7 +278,7 @@ c     | DROT(i,j) = [HK 0](kev+2-j,kev+2-i). Its first row is  |
 c     | zero.                                                  |
 c     %--------------------------------------------------------%
 c
-      call dlaset ('All', kev+1, kev+1, zero, zero, drot, kev+1)
+      call dlaset ('All', 1, kev+1, zero, zero, drot, kev+1)
       do 40 j = 1, kev+1
          do 30 i = 2, kev+1
             drot(i,j) = hk(kev+2-j, kev+2-i)
@@ -286,34 +286,27 @@ c
    40 continue
 c
 c     %--------------------------------------------------------%
-c     | Reduce DROT to upper Hessenberg form. Copy the         |
-c     | Hessenberg entries to HBUF before DORGHR overwrites    |
-c     | DROT with the orthogonal factor.                       |
+c     | Reduce DROT to upper Hessenberg form, and rotate back  |
+c     | to obtain the new KEV by KEV upper Hessenberg H and    |
+c     | its subdiagonal coupling BETAK. These are read from    |
+c     | entries on or above the subdiagonal of DROT, before    |
+c     | DORGHR overwrites DROT with the orthogonal factor,     |
+c     | from which Qk is then read.                            |
 c     %--------------------------------------------------------%
 c
       call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau,
      &             housework, lwork, houseinfo)
-      call dlaset ('All', kev+1, kev+1, zero, zero, hbuf, kev+1)
-      do 60 j = 1, kev+1
-         do 50 i = 1, min(j+1,kev+1)
-            hbuf(i,j) = drot(i,j)
-   50    continue
-   60 continue
-      call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
-     &             housework, lwork, houseinfo)
-c
-c     %--------------------------------------------------------%
-c     | Rotate back: the new KEV by KEV upper Hessenberg H,    |
-c     | its subdiagonal coupling BETAK, and Qk.                |
-c     %--------------------------------------------------------%
 c
       call dlaset ('All', kev, kev, zero, zero, h, ldh)
-      do 80 j = 1, kev
-         do 70 i = 1, min(j+1,kev)
-            h(i,j) = hbuf(kev+2-j, kev+2-i)
-   70    continue
-   80 continue
-      betak = hbuf(2,1)
+      do 60 j = 1, kev
+         do 50 i = 1, min(j+1,kev)
+            h(i,j) = drot(kev+2-j, kev+2-i)
+   50    continue
+   60 continue
+      betak = drot(2,1)
+c
+      call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
+     &             housework, lwork, houseinfo)
 c
       do 90 j = 1, kev
          call dcopy (kev, drot(2,kev+2-j), -1, qk(1,j), 1)
