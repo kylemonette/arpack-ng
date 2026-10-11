@@ -8,7 +8,7 @@ c  Intermediate level interface called by dsaupd.
 c
 c  This is a local fork of dsaup2. Internally, it computes the full
 c  eigendecomposition of the current KEV+NP tridiagonal matrix H (via
-c  dsteqr) ONCE per iteration, right after the Lanczos expansion: the
+c  dstemr) ONCE per iteration, right after the Lanczos expansion: the
 c  Ritz values and error bounds used for convergence testing are read
 c  directly off it (replacing dsaup2's dseigt call), and the same
 c  decomposition is then reused at shift-application time by drapps

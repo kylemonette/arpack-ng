@@ -79,9 +79,9 @@ c          The real Schur form of the current KEV+NP upper Hessenberg
 c          matrix, S = QSCHUR^T * H * QSCHUR, computed externally by
 c          the caller and REORDERED so that the KEV desired
 c          eigenvalues occupy the leading KEV by KEV quasi-upper-
-c          triangular block. Only TSCHUR(1:KEV,1:KEV) and
-c          TSCHUR(KEV+NP,KEV+NP) are referenced (the latter only to
-c          seed the arbitrary arrowhead hub value "delta"; see
+c          triangular block. Only TSCHUR(1:KEV,1:KEV) and, when
+c          HOUSE=.FALSE., TSCHUR(KEV+NP,KEV+NP) are referenced (the
+c          latter only to set the arbitrary value "delta"; see
 c          \Remarks). If KEV falls in the middle of a 2x2 complex-
 c          conjugate block, the caller must have already incremented
 c          KEV by one so this never happens.
@@ -154,8 +154,8 @@ c             | c*QSCHUR(m,1:KEV)              delta        |
 c
 c     where m = KEV+NP and c = RNORM, reduce it to upper
 c     Hessenberg form, and read the updated H, V, and RESID off that
-c     result. "delta" is mathematically arbitrary, TSCHUR(m,m) is
-c     used purely as a convenient, well-scaled placeholder.
+c     result. "delta" is mathematically arbitrary: TSCHUR(m,m) is
+c     used when HOUSE=.FALSE., and zero when HOUSE=.TRUE.
 c  2. When HOUSE=.FALSE., D is reduced directly (as built above) via
 c     dahhgv. When HOUSE=.TRUE., LAPACK's general-purpose
 c     Householder Hessenberg reduction (DGEHRD) does not preserve
@@ -225,7 +225,7 @@ c
      &           betak, qwork(1)
       Double precision
      &           d(kev+1,kev+1), qarrow(kev+1,kev+1),
-     &           drot(kev+1,kev+1), hbuf(kev+1,kev+1), tau(kev),
+     &           drot(kev+1,kev+1), tau(kev),
      &           qk1(kev,kev), qfinal(kev+np,kev)
       Double precision, allocatable, save :: housework(:), vnew(:,:)
 c
@@ -318,50 +318,40 @@ c
 c
 c        %--------------------------------------------------------------%
 c        | Reduce DROT to upper Hessenberg form via LAPACK's general    |
-c        | Householder reduction. DGEHRD packs the Hessenberg values    |
-c        | into the upper triangle + first subdiagonal of DROT, with    |
-c        | Householder vector data below that -- copy the valid         |
-c        | Hessenberg entries out to HBUF before DORGHR overwrites DROT |
-c        | with the explicit orthogonal matrix.                         |
+c        | Householder reduction. DGEHRD stores the Hessenberg matrix   |
+c        | on and above the first subdiagonal of DROT, and the          |
+c        | Householder vectors below it.                                |
 c        %--------------------------------------------------------------%
 c
          call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau,
      &                housework, lwork, houseinfo)
 c
-         call dlaset ('All', kev+1, kev+1, zero, zero, hbuf, kev+1)
-         do 90 j = 1, kev+1
-            do 80 i = 1, min(j+1,kev+1)
-               hbuf(i,j) = drot(i,j)
-   80       continue
-   90    continue
-c
-         call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
-     &                housework, lwork, houseinfo)
-c
 c        %--------------------------------------------------------------%
 c        | Read the new leading KEV by KEV upper Hessenberg H, and      |
-c        | BETAK (the new residual coupling), directly out of HBUF by   |
-c        | un-rotating. Entries strictly below H's subdiagonal are      |
-c        | explicitly zeroed rather than read out of HBUF, since the    |
-c        | corresponding HBUF locations there hold leftover             |
-c        | Householder-vector data, not Hessenberg zeros.               |
+c        | BETAK (the new residual coupling), out of DROT by            |
+c        | un-rotating. All entries read lie on or above the            |
+c        | subdiagonal of DROT, so this is done before DORGHR           |
+c        | overwrites DROT with the explicit orthogonal matrix.         |
 c        %--------------------------------------------------------------%
 c
          call dlaset ('All', kev, kev, zero, zero, h, ldh)
          do 110 j = 1, kev
             do 100 i = 1, min(j+1,kev)
-               h(i,j) = hbuf(kev+2-j, kev+2-i)
+               h(i,j) = drot(kev+2-j, kev+2-i)
   100       continue
   110    continue
 c
-         betak = hbuf(2,1)
+         betak = drot(2,1)
+c
+         call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
+     &                housework, lwork, houseinfo)
 c
 c        %--------------------------------------------------------------%
 c        | Build QFINAL = QSCHUR(:,1:kev) * QK1(1:kev,1:kev), the       |
 c        | KPLUSP by KEV transformation carrying V's current KPLUSP-    |
 c        | column basis directly onto the new KEV-column basis. QK1 is  |
-c        | read out of the now-orthogonal DROT the same way H was read  |
-c        | out of HBUF above (both need the same index reversal).       |
+c        | read out of the now-orthogonal DROT with the same index      |
+c        | reversal used for H above.                                   |
 c        %--------------------------------------------------------------%
 c
          do 130 j = 1, kev

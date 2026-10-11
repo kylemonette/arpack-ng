@@ -80,8 +80,8 @@ c
      &           d(ldd,m), q(ldq,m)
 c
       Double precision
-     &           zero, one, tol
-      parameter (zero = 0.0D+0, one = 1.0D+0, tol = 1.0D-20)
+     &           zero, one
+      parameter (zero = 0.0D+0, one = 1.0D+0)
 c
       integer    c, cp1, r
       Double precision
@@ -107,7 +107,7 @@ c        %-------------------------------------------------------------%
 c
          do 90 c = 1, r-2
 c
-            if (abs(d(r,c)) .lt. tol) go to 90
+            if (d(r,c) .eq. zero) go to 90
 c
             cp1 = c + 1
 c
