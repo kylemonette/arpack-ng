@@ -181,7 +181,7 @@ else()
         endif ()
 
         set(SCALARFUNS naitr napps naup2 naupd nconv neigh neupd ngets statn saitr sapps saup2 saupd sconv seigt seupd sgets stats getv0 sortc sortr sesrt stqrb)
-        set(COMPLEXFUNS, naitr napps naup2 naupd neigh neupd ngets statn getv0 sortc)
+        set(COMPLEXFUNS naitr napps naup2 naupd neigh neupd ngets statn getv0 sortc)
 
         foreach (f IN LISTS SCALARFUNS)
             set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Ds${f}=s${f}${SYMBOLSUFFIX} -Dd${f}=d${f}${SYMBOLSUFFIX}")
@@ -193,7 +193,6 @@ else()
 
         set(CFUNS snaupd sneupd dnaupd dneupd)
         foreach (f IN LISTS CFUNS)
-            set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D${f}=${f}${SYMBOLSUFFIX}")
             list(APPEND CFUNS_SUFFIXED ${f}${SYMBOLSUFFIX})
         endforeach ()
 
@@ -292,11 +291,11 @@ if (SYMBOLSUFFIX)
       message(WARNING "build script does not know how to enable your Fortran compiler's preprocessor and support for lines longer than 72 characters: set them manually via FFLAGS.")
     endif ()
 
-    set(BLASFUNS1 axpy copy gemv geqr2 lacpy lae2 lahqr lanhs larnv lartg lascl laset lasrt scal trevc trmm trsen gbmv gbtrf gbtrs gttrf gttrs pttrf pttrs)
+    set(BLASFUNS1 axpy copy gemv geqr2 lacpy lae2 lahqr lanhs larnv lartg lascl laset lasrt scal trevc trmm trsen gbmv gbtrf gbtrs getrf getrs gttrf gttrs pttrf pttrs)
     set(BLASFUNS2 dot ger labad laev2 lamch lanst lanv2 lapy2 larf larfg lasr nrm2 orm2r rot steqr swap)
     set(BLASFUNS3 dotc geru unm2r)
     set(BLASFUNS4 COPY LABAD LAMCH LANHS LANV2 LARFG ROT GEMV)
-    set(BLASFUNS5 scnrm2 dznrm2 csscal zdscal)
+    set(BLASFUNS5 scnrm2 dznrm2 csscal zdscal LSAME)
 
     foreach (f IN LISTS BLASFUNS1 BLASFUNS2)
         set(CMAKE_Fortran_FLAGS "${CMAKE_Fortran_FLAGS} -Ds${f}=s${f}${SYMBOLSUFFIX} -Dd${f}=d${f}${SYMBOLSUFFIX}")
@@ -316,7 +315,6 @@ if (SYMBOLSUFFIX)
 
     set(CFUNS sgemm cheev)
     foreach (f IN LISTS CFUNS)
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D${f}=${f}${SYMBOLSUFFIX}")
         list(APPEND CFUNS_SUFFIXED ${f}${SYMBOLSUFFIX})
     endforeach ()
 
@@ -664,12 +662,20 @@ function(build_tests)
   target_link_libraries(bug_142_gen arpack ${LAPACK_BLAS_LIBS} ${EXTRA_LDFLAGS})
   add_test(bug_142_gen_tst ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/bug_142_gen)
 
+  add_executable(bug_499 TESTS/bug_499.f)
+  target_link_libraries(bug_499 arpack ${LAPACK_BLAS_LIBS} ${EXTRA_LDFLAGS})
+  add_test(bug_499_tst ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/bug_499)
+
   if(MPI)
     set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/PARPACK/TESTS/MPI)
 
     add_executable(issue46 PARPACK/TESTS/MPI/issue46.f)
     target_link_libraries(issue46 parpack arpack ${LAPACK_BLAS_LIBS} ${EXTRA_LDFLAGS})
     add_test(issue46_tst mpiexec -n 2 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/issue46)
+
+    add_executable(parpack_bug_499 PARPACK/TESTS/MPI/bug_499.f)
+    target_link_libraries(parpack_bug_499 parpack arpack ${LAPACK_BLAS_LIBS} ${EXTRA_LDFLAGS})
+    add_test(parpack_bug_499_tst mpiexec -n 2 ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/parpack_bug_499)
   endif()
 
   if(ICB)

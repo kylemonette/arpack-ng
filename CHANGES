@@ -28,9 +28,13 @@ arpack-ng - next
  * CMake: The minimum required version of CMake is now 3.19.
  * Document which CMake modules are used.
  * [BUG FIX] Check for correct MPI CMake target in config file for static ARPACK libraries.
+ * [BUG FIX] Fix building with non-empty `SYMBOLSUFFIX`.
 
 [ Szabolcs Horvát ]
  * fix obsolescent character length warnings
+
+[ vera-rubin ]
+ * [BUG FIX] ssaupd/pssaupd/pdsaupd: 'BE' could return Ritz values from one end of the spectrum only (restore np in ssaup2, pssaup2 and pdsaup2 as dsaup2 does).
 
  -- TODO <TODO@users.noreply.github.com> DATE
 
