@@ -119,9 +119,11 @@ c\References:
 c  1. D.C. Sorensen, "Implicit Application of Polynomial Filters in
 c     a k-Step Arnoldi Method", SIAM J. Matr. Anal. Apps., 13 (1992),
 c     pp 357-385.
-c  2. A Unified View of Arrowhead Matrix Transformations and Lanczos
-c     Restarts (and nonsymmetric companion), James Baglama,
-c     Kyle Monette, Vasilije Perovic, (2026).
+c  2. Krylov-Schur and Implicit Restarting: A Bordered Hessenberg
+c     Perspective, James Baglama, Kyle Monette, Vasilije Perovic,
+c     (2026).
+c  3. A Unified View of Arrowhead Matrix Transformations and Lanczos
+c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
 c     dahhgv  Local routine that reduces the nonsymmetric

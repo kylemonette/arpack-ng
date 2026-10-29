@@ -379,6 +379,11 @@ c     for Updating the QR decomposition", ACM TOMS, December 1990,
 c     Volume 16 Number 4, pp 369-377.
 c  8. R.B. Lehoucq, D.C. Sorensen, "Implementation of Some Spectral
 c     Transformations in a k-Step Arnoldi Method". In Preparation.
+c  9. A Unified View of Arrowhead Matrix Transformations and Lanczos
+c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
+c  10. Krylov-Schur and Implicit Restarting: A Bordered Hessenberg
+c      Perspective, James Baglama, Kyle Monette, Vasilije Perovic,
+c      (2026).
 c
 c\Routines called:
 c     draup2 Local fork of dsaup2 (ARPACK routine that implements the

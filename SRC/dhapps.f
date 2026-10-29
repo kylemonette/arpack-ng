@@ -75,9 +75,11 @@ c
 c\BeginLib
 c
 c\References:
-c  1. A Unified View of Arrowhead Matrix Transformations and Lanczos
-c     Restarts (and nonsymmetric companion), James Baglama,
-c     Kyle Monette, Vasilije Perovic, (2026).
+c  1. Krylov-Schur and Implicit Restarting: A Bordered Hessenberg
+c     Perspective, James Baglama, Kyle Monette, Vasilije Perovic,
+c     (2026).
+c  2. A Unified View of Arrowhead Matrix Transformations and Lanczos
+c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
 c     dgehrd  LAPACK routine that reduces a general matrix to upper

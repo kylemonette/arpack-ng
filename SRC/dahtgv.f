@@ -54,6 +54,9 @@ c  1. A Unified View of Arrowhead Matrix Transformations and Lanczos
 c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
 c  2. H. Zha, A two-way chasing scheme for reducing an arrowhead matrix
 c     to tridiagonal form, J. Numer. Lin. Alg. Appl., 1 (1992), 49-57.
+c  3. Krylov-Schur and Implicit Restarting: A Bordered Hessenberg
+c     Perspective, James Baglama, Kyle Monette, Vasilije Perovic,
+c     (2026).
 c
 c\Routines called:
 c     dlaset  LAPACK matrix initialization routine.

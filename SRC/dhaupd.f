@@ -341,6 +341,11 @@ c     TR95-13, Department of Computational and Applied Mathematics.
 c  3. B.N. Parlett & Y. Saad, "Complex Shift and Invert Strategies for
 c     Real Matrices", Linear Algebra and its Applications, vol 88/89,
 c     pp 575-595, (1987).
+c  4. Krylov-Schur and Implicit Restarting: A Bordered Hessenberg
+c     Perspective, James Baglama, Kyle Monette, Vasilije Perovic,
+c     (2026).
+c  5. A Unified View of Arrowhead Matrix Transformations and Lanczos
+c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
 c     dhaup2   ARPACK routine that implements the thick-restarted

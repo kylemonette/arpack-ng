@@ -46,9 +46,11 @@ c     pp 357-385.
 c  2. R.B. Lehoucq, "Analysis and Implementation of an Implicitly
 c     Restarted Arnoldi Iteration", Rice University Technical Report
 c     TR95-13, Department of Computational and Applied Mathematics.
-c  3. A Unified View of Arrowhead Matrix Transformations and Lanczos
-c     Restarts (and nonsymmetric companion), James Baglama,
-c     Kyle Monette, Vasilije Perovic, (2026).
+c  3. Krylov-Schur and Implicit Restarting: A Bordered Hessenberg
+c     Perspective, James Baglama, Kyle Monette, Vasilije Perovic,
+c     (2026).
+c  4. A Unified View of Arrowhead Matrix Transformations and Lanczos
+c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
 c     dgetv0   ARPACK initial vector generation routine.

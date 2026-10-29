@@ -53,15 +53,18 @@ c
 c\BeginLib
 c
 c\References:
-c  1. A Unified View of Arrowhead Matrix Transformations and Lanczos
-c     Restarts (and nonsymmetric companion), James Baglama,
-c     Kyle Monette, Vasilije Perovic, (2026).
+c  1. Krylov-Schur and Implicit Restarting: A Bordered Hessenberg
+c     Perspective, James Baglama, Kyle Monette, Vasilije Perovic,
+c     (2026).
 c  2. H. Zha, A two-way chasing scheme for reducing an arrowhead matrix
 c     to tridiagonal form, J. Numer. Lin. Alg. Appl., 1 (1992), 49-57.
+c  3. A Unified View of Arrowhead Matrix Transformations and Lanczos
+c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
 c     dlaset  LAPACK matrix initialization routine.
 c     dlartg  LAPACK Givens rotation construction routine.
+c     drot    Level 1 BLAS that applies a plane rotation.
 c
 c\Author
 c     James Baglama
@@ -88,7 +91,6 @@ c
      &           cs, sn, rr
 c
       external   dlaset, dlartg, drot
-      intrinsic  abs
 c
 c     %--------------------------------%
 c     | Initialize Q to the identity.  |
