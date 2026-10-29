@@ -15,7 +15,7 @@ c  dnaup2's dneigh call, whose internal QR pass this subsumes). At
 c  shift-application time the SAME decomposition is reordered (via
 c  LAPACK's DTRSEN) so the NEV desired eigenvalues occupy the leading
 c  block, and that reordered Schur form/vectors are passed into
-c  dqapps (the nonsymmetric arrowhead-restart fork of dnapps, which
+c  dqapps (the bordered-restart fork of dnapps, which
 c  itself takes HOUSE to select Householder vs. Givens internally)
 c  instead of calling dnapps directly with a shift list.
 c
@@ -32,7 +32,7 @@ c
 c  HOUSE   Logical.  (INPUT)
 c          Passed straight through to dqapps at each shift-
 c          application step, selecting Householder (.TRUE.) vs.
-c          Givens (.FALSE.) reduction of the arrowhead matrix -- see
+c          Givens (.FALSE.) reduction of the bordered matrix -- see
 c          dqapps's own \Arguments for details.
 c
 c\EndDoc
@@ -57,7 +57,7 @@ c
 c\Routines called:
 c     dgetv0   ARPACK initial vector generation routine.
 c     dnaitr   ARPACK Arnoldi factorization routine.
-c     dqapps Local fork of dnapps: applies the nonsymmetric arrowhead
+c     dqapps Local fork of dnapps: applies the bordered matrix
 c              restart in place of implicit-shift bulge chasing.
 c     dnconv   ARPACK convergence of Ritz values routine.
 c     dtrevc   LAPACK routine that computes eigenvectors of a quasi-
@@ -832,10 +832,10 @@ c
          end if
 c
 c        %-----------------------------------------------------------%
-c        | Apply the nonsymmetric arrowhead restart: build the       |
-c        | (NEV+1)x(NEV+1) arrowhead matrix from the NEV desired     |
-c        | Schur eigenpairs, reduce it to upper Hessenberg form, and |
-c        | read the updated H, V, and RESID off that result.         |
+c        | Apply the bordered restart: build the (NEV+1)x(NEV+1)     |
+c        | bordered matrix from the NEV desired Schur eigenpairs,    |
+c        | reduce it to upper Hessenberg form, and read the updated  |
+c        | H, V, and RESID off that result.                          |
 c        %-----------------------------------------------------------%
 c
          call dqapps (n, nev, np, v, ldv, h, ldh, resid, rnorm, q, ldq,

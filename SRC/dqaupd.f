@@ -283,7 +283,7 @@ c  HOUSE   Logical.  (INPUT)
 c          Passed straight through to dqaup2 (and from there to
 c          dqapps) at each shift-application step, selecting
 c          Householder (.TRUE.) vs. Givens (.FALSE.) reduction of the
-c          arrowhead matrix.
+c          bordered matrix.
 c
 c\Remarks
 c  1. The computed Ritz values are approximate eigenvalues of OP. The

@@ -8,7 +8,7 @@ c  Given the Arnoldi factorization
 c
 c     A*V_{k} - V_{k}*H_{k} = r_{k+p}*e_{k+p}^T,
 c
-c  apply NP shifts implicitly (via the NONSYMMETRIC ARROWHEAD restart,
+c  apply NP shifts implicitly (via the NONSYMMETRIC BORDERED restart,
 c  see \Remarks below) resulting in
 c
 c     A*(V_{k}*X) - (V_{k}*X)*(Hk) = rnew_{k}*e_{k}^T
@@ -126,9 +126,9 @@ c  3. A Unified View of Arrowhead Matrix Transformations and Lanczos
 c     Restarts, James Baglama, Kyle Monette, Vasilije Perovic, (2026).
 c
 c\Routines called:
-c     dahhgv  Local routine that reduces the nonsymmetric
-c             arrowhead matrix directly to upper Hessenberg form via
-c             a one-way Givens chasing scheme (HOUSE=.FALSE.)
+c     dahhgv  Local routine that reduces the bordered matrix
+c             directly to upper Hessenberg form via a
+c             one-way Givens chasing scheme (HOUSE=.FALSE.)
 c     dgehrd  LAPACK routine that reduces a general matrix to upper
 c             Hessenberg form via Householder reflectors. Used when
 c             HOUSE=.TRUE.
@@ -145,11 +145,11 @@ c     dscal   Level 1 BLAS that scales a vector.
 c
 c\Remarks
 c  1. This routine replaces DNAPPS's classical implicit-shift bulge-
-c     chasing with the nonsymmetric arrowhead restart of Reference 2.
+c     chasing with the bordered restart of Reference 2.
 c     Given the caller's Schur decomposition of the current KEV+NP
 c     upper Hessenberg matrix, reordered so the KEV desired
 c     eigenvalues occupy TSCHUR's leading block, form the (KEV+1) by
-c     (KEV+1) nonsymmetric arrowhead matrix
+c     (KEV+1) bordered matrix
 c
 c         D = | TSCHUR(1:KEV,1:KEV)      c*QSCHUR(m,1:KEV)' |
 c             | c*QSCHUR(m,1:KEV)              delta        |
@@ -299,8 +299,8 @@ c
 c
 c        %---------------------------------------------------------------%
 c        | Build the ALREADY 180-degree-rotated (and transposed) (KEV+1) |
-c        | by (KEV+1) arrowhead matrix DROT. This is mathematically      |
-c        | identical to building the natural downward-pointing arrowhead |
+c        | by (KEV+1) bordered matrix DROT. This is mathematically       |
+c        | identical to building the natural downward-pointing bordered  |
 c        | and then applying the rotation of \Remarks (2), but without   |
 c        | ever forming that un-rotated matrix.                          |
 c        %---------------------------------------------------------------%
@@ -366,9 +366,9 @@ c
       else
 c
 c        %--------------------------------------------------------%
-c        | Build the natural (downward-pointing) nonsymmetric     |
-c        | arrowhead matrix D directly -- no rotation is needed   |
-c        | since dahhgv operates on this form as-is.              |
+c        | Build the natural (downward-pointing) bordered matrix  |
+c        | D directly -- no rotation is needed since dahhgv       |
+c        | operates on this form as-is.                           |
 c        %--------------------------------------------------------%
 c
          call dlaset ('All', kev+1, kev+1, zero, zero, d, kev+1)

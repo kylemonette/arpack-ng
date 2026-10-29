@@ -4,7 +4,7 @@ c
 c\Name: dahhgv
 c
 c\Description:
-c  Reduces an M by M nonsymmetric arrowhead matrix D pointing
+c  Reduces an M by M bordered matrix D pointing
 c  southeast to upper Hessenberg form using Givens rotations
 c  in a one-way chasing scheme in the style of Zha
 c  (see reference 2 below).
@@ -18,10 +18,10 @@ c     ( M, D, LDD, Q, LDQ )
 c
 c\Arguments
 c  M       Integer.  (INPUT)
-c          Order of the arrowhead matrix D.  Must be >= 3.
+c          Order of the bordered matrix D.  Must be >= 3.
 c
 c  D       Double precision M by M array.  (INPUT/OUTPUT)
-c          INPUT: D contains the nonsymmetric arrowhead matrix
+c          INPUT: D contains the bordered matrix
 c              D = | S(1:k,1:k)      c*Q(m,1:k)' |,    k = M-1,
 c                  | c*Q(m,1:k)         delta    |
 c          where S is (real-Schur) quasi-upper-triangular.

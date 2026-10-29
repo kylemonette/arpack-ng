@@ -56,7 +56,7 @@ c\Routines called:
 c     dgetv0   ARPACK initial vector generation routine.
 c     dnaitr   ARPACK Arnoldi factorization routine.
 c     dhapps   ARPACK harmonic thick restart routine.
-c     dqapps   ARPACK arrowhead thick restart routine (Ritz values).
+c     dqapps   ARPACK bordered thick restart routine (Ritz values).
 c     dnconv   ARPACK convergence of Ritz values routine.
 c     dngets   ARPACK reorder Ritz values and error bounds routine.
 c     dsortc   ARPACK sorting routine.
@@ -958,8 +958,8 @@ c
          else
 c
 c           %------------------------------------------------%
-c           | Reorder the Schur form so the NEV selected      |
-c           | values lead, and apply the arrowhead restart.   |
+c           | Reorder the Schur form so the NEV selected     |
+c           | values lead, and apply the bordered restart.   |
 c           %------------------------------------------------%
 c
             call dtrsen ('N', 'V', select, kplusp, hs, ldh, hz, ldh,
