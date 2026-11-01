@@ -186,17 +186,22 @@ c
 c
 c     %--------------------------------------------------------------%
 c     | Workspace for the Schur forms and block selection, sized by  |
-c     | LDH (the size in use is KPLUSP <= LDH).                      |
+c     | LDH (the size in use is KPLUSP <= LDH). The arrays are SAVEd |
+c     | allocatables, allocated with HS below, so that they are not  |
+c     | allocated and freed on every reverse-communication call.     |
 c     %--------------------------------------------------------------%
 c
       integer    i, iconj, nblk, pick, msel, lwork
-      integer    blockstart(ldh), blocklen(ldh), consumed(ldh),
-     &           iwork(1)
-      logical    select(ldh)
+      integer    iwork(1)
+      integer, allocatable, save ::
+     &           blockstart(:), blocklen(:), consumed(:)
+      logical, allocatable, save ::
+     &           select(:)
       Double precision
-     &           work(8*ldh+16), eig1r(ldh), eig1i(ldh), bidx(ldh),
-     &           dif(2), qdum(1), sep1, sep2, pl, pr, rtmp,
-     &           rc(ldh), rs(ldh)
+     &           dif(2), qdum(1), sep1, sep2, pl, pr, rtmp
+      Double precision, allocatable, save ::
+     &           work(:), eig1r(:), eig1i(:), bidx(:),
+     &           rc(:), rs(:)
 c
 c     %---------------------------------------------------------------%
 c     | HS/HP:   Schur form (or the pencil's generalized Schur form). |
@@ -297,13 +302,17 @@ c
          if (allocated(hs)) then
             if (size(hs,1) .ne. ldh) then
                deallocate (hs, hp, hz, hu, hw, hwr, hwi, halr, hali,
-     &                     hbet)
+     &                     hbet, blockstart, blocklen, consumed,
+     &                     select, work, eig1r, eig1i, bidx, rc, rs)
             end if
          end if
          if (.not. allocated(hs)) then
             allocate (hs(ldh,ldh), hp(ldh,ldh), hz(ldh,ldh),
      &                hu(ldh+1), hw(ldh+1,ldh), hwr(ldh),
-     &                hwi(ldh), halr(ldh), hali(ldh), hbet(ldh))
+     &                hwi(ldh), halr(ldh), hali(ldh), hbet(ldh),
+     &                blockstart(ldh), blocklen(ldh), consumed(ldh),
+     &                select(ldh), work(8*ldh+16), eig1r(ldh),
+     &                eig1i(ldh), bidx(ldh), rc(ldh), rs(ldh))
          end if
       end if
 c

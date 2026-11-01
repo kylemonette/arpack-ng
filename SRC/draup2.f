@@ -270,16 +270,18 @@ c     | to the shift site, across the possible ISHIFT=0 reverse-     |
 c     | communication exit in between, so they are SAVEd allocatables|
 c     | (re-sized if LDH ever changes between problems).             |
 c     | ARROWDIAG/ARROWSUBD/ARROWWORK/ARROWIWORK/ARROWSUPP are       |
-c     | scratch used only at the computation site itself.            |
+c     | scratch used only at the computation site itself. They are   |
+c     | SAVEd allocatables too, so that they are not allocated and   |
+c     | freed on every reverse-communication call.                   |
 c     %--------------------------------------------------------------%
 c
       logical    arrowtryrac
-      integer    arrowierr, arrowm, arrowiwork(10*ldh),
-     &           arrowsupp(2*ldh)
-      Double precision
-     &           arrowdiag(ldh), arrowsubd(ldh), arrowwork(18*ldh)
+      integer    arrowierr, arrowm
+      integer, allocatable, save ::
+     &           arrowiwork(:), arrowsupp(:)
       Double precision, allocatable, save ::
-     &           arroweigval(:), arroweigvec(:,:)
+     &           arroweigval(:), arroweigvec(:,:),
+     &           arrowdiag(:), arrowsubd(:), arrowwork(:)
 c
 c     %--------------------------------------------------------------%
 c     | Local workspace for selecting/reordering the KEV+NP          |
@@ -287,13 +289,16 @@ c     | eigenpairs above so the NEV "desired" ones (per the fresh    |
 c     | ARROWEIGVAL, sorted directly by the user's WHICH preference) |
 c     | end up in the first NEV positions. drapps requires its       |
 c     | EIGVAL/EIGVEC inputs pre-sorted this way; it does not do any |
-c     | selection itself.                                            |
+c     | selection itself. SAVEd allocatables, allocated with         |
+c     | ARROWEIGVAL above.                                           |
 c     %--------------------------------------------------------------%
 c
-      integer    arrowkeepidx(ldh), kevd2
-      Double precision
-     &           arrowsortval(ldh), arrowsortvec(ldh,ldh),
-     &           arrowsortidx(ldh)
+      integer    kevd2
+      integer, allocatable, save ::
+     &           arrowkeepidx(:)
+      Double precision, allocatable, save ::
+     &           arrowsortval(:), arrowsortvec(:,:),
+     &           arrowsortidx(:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -523,11 +528,19 @@ c        %--------------------------------------------------------%
 c
          if (allocated(arroweigval)) then
             if (size(arroweigvec,1) .ne. ldh) then
-               deallocate (arroweigval, arroweigvec)
+               deallocate (arroweigval, arroweigvec, arrowdiag,
+     &                     arrowsubd, arrowwork, arrowiwork,
+     &                     arrowsupp, arrowkeepidx, arrowsortval,
+     &                     arrowsortvec, arrowsortidx)
             end if
          end if
          if (.not. allocated(arroweigval)) then
-            allocate (arroweigval(ldh), arroweigvec(ldh,ldh))
+            allocate (arroweigval(ldh), arroweigvec(ldh,ldh),
+     &                arrowdiag(ldh), arrowsubd(ldh),
+     &                arrowwork(18*ldh), arrowiwork(10*ldh),
+     &                arrowsupp(2*ldh), arrowkeepidx(ldh),
+     &                arrowsortval(ldh), arrowsortvec(ldh,ldh),
+     &                arrowsortidx(ldh))
          end if
 c
 c        %--------------------------------------------------------%

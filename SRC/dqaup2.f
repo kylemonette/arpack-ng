@@ -173,17 +173,23 @@ c     | Local workspace for the fresh real Schur decomposition of the|
 c     | current KEV+NP upper Hessenberg H, computed just before      |
 c     | applying shifts and passed into dqapps. Sized by LDH, the    |
 c     | same bound H itself uses (the actual size in use at any      |
-c     | point is KPLUSP <= LDH).                                     |
+c     | point is KPLUSP <= LDH). The arrays are SAVEd allocatables,  |
+c     | allocated with ARROWSCHUR below, so that they are not        |
+c     | allocated and freed on every reverse-communication call.     |
 c     %--------------------------------------------------------------%
 c
       integer    arrowierr, arrownblk, arrowpick, arrowm, iconj, i
-      integer    arrowblockstart(ldh), arrowblocklen(ldh),
-     &           arrowconsumed(ldh), arrowiwork(1)
-      logical    arrowselect(ldh)
+      integer    arrowiwork(1)
+      integer, allocatable, save ::
+     &           arrowblockstart(:), arrowblocklen(:),
+     &           arrowconsumed(:)
+      logical, allocatable, save ::
+     &           arrowselect(:)
       Double precision
-     &           arrowwork(7*ldh),
-     &           arrowsep1, arrowsep2,
-     &           arroweig1r(ldh), arroweig1i(ldh), arrowbidx(ldh)
+     &           arrowsep1, arrowsep2
+      Double precision, allocatable, save ::
+     &           arrowwork(:),
+     &           arroweig1r(:), arroweig1i(:), arrowbidx(:)
 c
 c     %--------------------------------------------------------------%
 c     | ARROWSCHUR/ARROWSCHURVEC/ARROWWR/ARROWWI carry the fresh     |
@@ -417,12 +423,19 @@ c
          if (allocated(arrowschur)) then
             if (size(arrowschur,1) .ne. ldh) then
                deallocate (arrowschur, arrowschurvec, arrowwr,
-     &                     arrowwi, arrowbnd)
+     &                     arrowwi, arrowbnd, arrowblockstart,
+     &                     arrowblocklen, arrowconsumed, arrowselect,
+     &                     arrowwork, arroweig1r, arroweig1i,
+     &                     arrowbidx)
             end if
          end if
          if (.not. allocated(arrowschur)) then
             allocate (arrowschur(ldh,ldh), arrowschurvec(ldh,ldh),
-     &                arrowwr(ldh), arrowwi(ldh), arrowbnd(ldh))
+     &                arrowwr(ldh), arrowwi(ldh), arrowbnd(ldh),
+     &                arrowblockstart(ldh), arrowblocklen(ldh),
+     &                arrowconsumed(ldh), arrowselect(ldh),
+     &                arrowwork(7*ldh), arroweig1r(ldh),
+     &                arroweig1i(ldh), arrowbidx(ldh))
          end if
 c
 c        %--------------------------------------------------------%
