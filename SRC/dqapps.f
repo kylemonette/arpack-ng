@@ -138,7 +138,6 @@ c             HOUSE=.TRUE.
 c     arscnd  ARPACK utility routine for timing.
 c     dlaset  LAPACK matrix initialization routine.
 c     dlacpy  LAPACK matrix copy routine.
-c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
 c     dgemm   Level 3 BLAS routine for matrix-matrix multiplication.
 c     dcopy   Level 1 BLAS that copies one vector to another.
 c     dscal   Level 1 BLAS that scales a vector.
@@ -235,7 +234,7 @@ c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
-      external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
+      external   dcopy, dscal, dlaset, dlacpy, dgemm,
      &           dahhgv, dgehrd, dorghr, arscnd
 c
 c     %-----------------------%
@@ -305,7 +304,7 @@ c        | and then applying the rotation of \Remarks (2), but without   |
 c        | ever forming that un-rotated matrix.                          |
 c        %---------------------------------------------------------------%
 c
-         call dlaset ('All', kev+1, kev+1, zero, zero, drot, kev+1)
+         drot(1,1) = zero
 c
          do 50 j = 2, kev+1
             drot(1,j) = rnorm * qschur(kplusp, kev+2-j)
@@ -336,7 +335,9 @@ c        | subdiagonal of DROT, so this is done before DORGHR           |
 c        | overwrites DROT with the explicit orthogonal matrix.         |
 c        %--------------------------------------------------------------%
 c
-         call dlaset ('All', kev, kev, zero, zero, h, ldh)
+         if (kev .gt. 2) then
+            call dlaset ('Lower', kev-2, kev-2, zero, zero, h(3,1), ldh)
+         end if
          do 110 j = 1, kev
             do 100 i = 1, min(j+1,kev)
                h(i,j) = drot(kev+2-j, kev+2-i)
@@ -370,8 +371,6 @@ c        | Build the natural (downward-pointing) bordered matrix  |
 c        | D directly -- no rotation is needed since dahhgv       |
 c        | operates on this form as-is.                           |
 c        %--------------------------------------------------------%
-c
-         call dlaset ('All', kev+1, kev+1, zero, zero, d, kev+1)
 c
          call dlacpy ('All', kev, kev, tschur, ldtschur, d, kev+1)
 c

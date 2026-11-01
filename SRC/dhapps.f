@@ -292,7 +292,9 @@ c
       call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau,
      &             housework, lwork, houseinfo)
 c
-      call dlaset ('All', kev, kev, zero, zero, h, ldh)
+      if (kev .gt. 2) then
+         call dlaset ('Lower', kev-2, kev-2, zero, zero, h(3,1), ldh)
+      end if
       do 60 j = 1, kev
          do 50 i = 1, min(j+1,kev)
             h(i,j) = drot(kev+2-j, kev+2-i)

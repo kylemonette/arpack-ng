@@ -81,7 +81,8 @@ c     dlapy2   LAPACK routine to compute sqrt(x**2+y**2) carefully.
 c     dlacpy   LAPACK matrix copy routine.
 c     dlaset   LAPACK matrix initialization routine.
 c     dtrmm    Level 3 BLAS routine for triangular matrix times matrix.
-c     drot     Level 1 BLAS that applies a plane rotation.
+c     dgemv    Level 2 BLAS routine for matrix vector multiplication.
+c     drot    Level 1 BLAS that applies a plane rotation.
 c     daxpy    Level 1 BLAS that computes a vector triad.
 c     dcopy    Level 1 BLAS that copies one vector to another.
 c     ddot     Level 1 BLAS that computes the scalar product of two
@@ -221,7 +222,7 @@ c
      &           dmout  , dsortc , dlartg , dhgeqz ,
      &           dtgevc , dtgsen , dlahqr , dtrevc , dtrsen ,
      &           dlacpy , dlaset , dtrmm  , drot   ,
-     &           daxpy  , dscal
+     &           daxpy  , dscal  , dgemv
 c
 c     %--------------------%
 c     | External Functions |
@@ -522,7 +523,7 @@ c
 c
 c           %-------------------------------------------------%
 c           | Real Schur form HS = HZ^T*H*HZ, and the         |
-c           | eigenvectors of H stored in Q.                  |
+c           | eigenvectors of HS stored in Q.                 |
 c           %-------------------------------------------------%
 c
             call dlacpy ('All', kplusp, kplusp, h, ldh, hs, ldh)
@@ -534,8 +535,7 @@ c
                go to 1200
             end if
 c
-            call dlacpy ('All', kplusp, kplusp, hz, ldh, q, ldq)
-            call dtrevc ('R', 'B', select, kplusp, hs, ldh, qdum, 1,
+            call dtrevc ('R', 'A', select, kplusp, hs, ldh, qdum, 1,
      &                   q, ldq, kplusp, msel, work, ierr)
             if (ierr .ne. 0) then
                info = -8
@@ -612,10 +612,12 @@ c
          else
 c
 c           %------------------------------------------------%
-c           | Ritz estimates RNORM*|e_m^T*y|.                |
+c           | Ritz estimates RNORM*|e_m^T*HZ*y|, where y is  |
+c           | an eigenvector of HS.                          |
 c           %------------------------------------------------%
 c
-            call dcopy (kplusp, q(kplusp,1), ldq, workl, 1)
+            call dgemv ('T', kplusp, kplusp, one, q, ldq, hz(kplusp,1),
+     &                  ldh, zero, workl, 1)
             iconj = 0
             do 29 j = 1, kplusp
                if ( abs( ritzi(j) ) .le. zero ) then

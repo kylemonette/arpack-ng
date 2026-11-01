@@ -129,7 +129,7 @@ c     dorgtr  LAPACK routine that generates the explicit orthogonal
 c             matrix from DSYTRD's packed reflectors (HOUSE=.TRUE.).
 c     dlaset  LAPACK matrix initialization routine.
 c     dlacpy  LAPACK matrix copy routine.
-c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
+c     dgemm   Level 3 BLAS routine for matrix-matrix multiplication.
 c     dcopy   Level 1 BLAS that copies one vector to another.
 c     dscal   Level 1 BLAS that scales a vector.
 c     arscnd  ARPACK utility routine for timing.
@@ -220,7 +220,7 @@ c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
-      external   dcopy, dscal, dlaset, dlacpy, dgemv, dgemm,
+      external   dcopy, dscal, dlaset, dlacpy, dgemm,
      &           dahtgv, dsytrd, dorgtr, arscnd
 c
 c     %-----------------------%
