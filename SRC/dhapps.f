@@ -99,17 +99,10 @@ c     dnrm2   Level 1 BLAS that computes the norm of a vector.
 c     dvout   ARPACK utility routine that prints vectors.
 c
 c\Remarks
-c  1. Let HBAR = [H; RNORM*e_{m}^T] and
-c     Zk = Z(:,1:KEV). Since Zk spans an invariant subspace of the
-c     harmonic matrix, HBAR*Zk lies in the span of the KEV+1
-c     orthonormal columns of PK = [[Zk; 0] p], where p is U
-c     orthogonalized against [Zk; 0]. Hence
-c         A*V*Zk = [V RESID/RNORM]*PK*HK,   HK = PK^T*HBAR*Zk,
-c     with HK a dense (KEV+1) by KEV matrix.
-c  2. The bordered matrix [HK 0] is rotated by 180 degrees and
+c  1. The bordered matrix [HK 0] is rotated by 180 degrees and
 c     transposed, then reduced to upper Hessenberg form by DGEHRD.
-c     After rotating back, the orthogonal factor is diag(Qk,1) and
-c     the last row of the reduced matrix is BETAK*e_{k}^T. Then
+c     After rotating back, the last row of the reduced matrix is
+c     BETAK*e_{k}^T. Then
 c         VNEW = V*Zk*Qk,  HNEW = Qk^T*HK(1:KEV,:)*Qk,
 c         rnew = BETAK*[V RESID/RNORM]*p.
 c

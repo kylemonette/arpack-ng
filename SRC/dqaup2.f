@@ -734,7 +734,7 @@ c        | Classify each diagonal block (1x1 or 2x2) of the fresh   |
 c        | Schur form. DLAHQR already returns each position's       |
 c        | eigenvalue directly in ARROWWR/ARROWWI (both rows of a   |
 c        | 2x2 block carry its complex-conjugate pair), so no extra |
-c        | eigenvalue computation (e.g. DLANV2) is needed here.     |
+c        | eigenvalue computation is needed here.                   |
 c        %----------------------------------------------------------%
 c
          arrownblk = 0

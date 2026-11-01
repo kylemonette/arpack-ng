@@ -289,9 +289,7 @@ c     | (KEV+1) arrowhead matrix built from those eigenpairs,       |
 c     | reduce it directly to tridiagonal form via either one-way   |
 c     | Givens chasing or LAPACK's Householder reduction (HOUSE     |
 c     | selects which), and read the new H, V, and RESID off that   |
-c     | result. See "A Unified View of Arrowhead Matrix             |
-c     | Transformations and Lanczos Restarts", Baglama, Monette,    |
-c     | Perovic (2026).                                             |
+c     | result. See Reference (3) above.                            |
 c     %-------------------------------------------------------------%
 c
 c     %------------------------------------------------------------%
