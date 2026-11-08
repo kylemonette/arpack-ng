@@ -25,10 +25,10 @@ c          INPUT: D contains the bordered matrix
 c              D = | S(1:k,1:k)      c*Q(m,1:k)' |,    k = M-1,
 c                  | c*Q(m,1:k)         delta    |
 c          where S is (real-Schur) quasi-upper-triangular.
-c          OUTPUT: D contains the resulting upper Hessenberg matrix,
-c          i.e. Hk = Q'*D_old*Q, with leading K by K block Hk upper
-c          Hessenberg, D(K,K+1) = D(K+1,K) = a scalar, and
-c          D(K+1,K+1) = delta (unchanged).
+c          OUTPUT: D contains Q'*D_old*Q. Its leading K by K block Hk
+c          is upper Hessenberg, D(K+1,1:K) = beta*e_K^T for a scalar
+c          beta, D(1:K,K+1) = Qk'*D_old(1:K,K+1), and D(K+1,K+1) =
+c          delta (unchanged).
 c
 c  LDD     Integer.  (INPUT)
 c          Leading dimension of D exactly as declared in the calling
@@ -113,12 +113,12 @@ c
 c
             cp1 = c + 1
 c
-c           %--------------------------------------------------------%
-c           | Construct the rotation (cs,sn) that zeros D(r,c) using |
-c           | D(r,c+1) as pivot; this is a right rotation applied to |
-c           | columns c:c+1, cf. dlartg(a,b,cs,sn,rr):               |
-c           |    cs*a + sn*b = rr,   -sn*a + cs*b = 0                |
-c           %--------------------------------------------------------%
+c           %-------------------------------------------------------%
+c           | Construct the rotation (cs,sn) that zeros D(r,c)      |
+c           | against D(r,c+1); this is a right rotation applied to |
+c           | columns c:c+1, cf. dlartg(a,b,cs,sn,rr):              |
+c           |    cs*a + sn*b = rr,   -sn*a + cs*b = 0               |
+c           %-------------------------------------------------------%
 c
             call dlartg (d(r,c), d(r,cp1), cs, sn, rr)
 c

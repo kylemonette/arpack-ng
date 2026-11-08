@@ -5,8 +5,8 @@ c\Name: dahtgv
 c
 c\Description:
 c  Tridiagonalizes an M by M symmetric "upward-pointing" arrowhead
-c  matrix A using the one-way Givens chasing scheme of
-c  Zha (see reference 2 below).
+c  matrix A using Givens rotations in a one-way chasing scheme,
+c  based on Zha (see reference 2 below).
 c
 c\Usage:
 c  call dahtgv
@@ -61,6 +61,7 @@ c
 c\Routines called:
 c     dlaset  LAPACK matrix initialization routine.
 c     dlartg  LAPACK Givens rotation construction routine.
+c     drot    Level 1 BLAS that applies a plane rotation.
 c
 c\Author
 c     James Baglama
@@ -96,9 +97,9 @@ c
 c
       do 100 k = 1, m-2
 c
-c        %-------------------------------------------------------%
-c        | Eliminate A(i+1,1) using A(i,1) as pivot, rows i,i+1. |
-c        %-------------------------------------------------------%
+c        %------------------------------------------------%
+c        | Eliminate A(i+1,1) against A(i,1), rows i,i+1. |
+c        %------------------------------------------------%
 c
          i = m - k
          call dlartg (a(i,1), a(i+1,1), cs, sn, rr)

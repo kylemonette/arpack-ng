@@ -555,6 +555,8 @@ c        | RITZI and BOUNDS respectively. The variables NEV  |
 c        | and NP may be updated if the NEV-th wanted Ritz   |
 c        | value has a non zero imaginary part. In this case |
 c        | NEV is increased by one and NP decreased by one.  |
+c        | NOTE: The last two arguments of dngets are no     |
+c        | longer used as of version 2.1.                    |
 c        %---------------------------------------------------%
 c
          nev = nev0
@@ -655,7 +657,15 @@ c
      &            '_naup2: Sorted ritz estimates.')
             end if
 c
+c           %------------------------------------%
+c           | Max iterations have been exceeded. |
+c           %------------------------------------%
+c
             if (iter .gt. mxiter .and. nconv .lt. numcnv) info = 1
+c
+c           %---------------------%
+c           | No shifts to apply. |
+c           %---------------------%
 c
             if (np .eq. 0 .and. nconv .lt. numcnv) info = 2
 c
@@ -677,11 +687,23 @@ c
             else if (nev .eq. 1 .and. kplusp .gt. 3) then
                nev = 2
             end if
+c           %---- Scipy fix ------------------------------------------------
+c           | We must keep nev below this value, as otherwise we can get
+c           | np == 0 (note that dngets below can bump nev by 1). If np == 0,
+c           | the next call to `dnaitr` will write out-of-bounds.
+c           |
             if (nev .gt. kplusp - 2) then
                nev = kplusp - 2
             end if
+c           |
+c           %---- Scipy fix end --------------------------------------------
 c
             np = kplusp - nev
+c
+c           %---------------------------------------%
+c           | If the size of NEV was just increased |
+c           | resort the eigenvalues.               |
+c           %---------------------------------------%
 c
             if (nevbef .lt. nev)
      &         call dngets  (ishift, which, nev, np, ritzr, ritzi,
@@ -708,6 +730,12 @@ c
 c
          if (ishift .eq. 0) then
 c
+c           %-------------------------------------------------------%
+c           | User specified shifts: reverse communication to       |
+c           | compute the shifts. They are returned in the first    |
+c           | 2*NP locations of WORKL.                              |
+c           %-------------------------------------------------------%
+c
             ushift = .true.
             ido = 3
             go to 9000
@@ -715,7 +743,20 @@ c
 c
    50    continue
 c
+c        %------------------------------------%
+c        | Back from reverse communication;   |
+c        | User specified shifts are returned |
+c        | in WORKL(1:2*NP)                   |
+c        %------------------------------------%
+c
          ushift = .false.
+c
+c
+c            %----------------------------------%
+c            | Move the NP shifts from WORKL to |
+c            | RITZR, RITZI to free up WORKL    |
+c            | for non-exact shift case.        |
+c            %----------------------------------%
 c
          if ( ishift .eq. 0 ) then
              call dcopy  (np, workl,       1, ritzr, 1)
@@ -790,6 +831,7 @@ c
  1210    continue
 c
          arrowm = 0
+         arrowpick = 0
          j = arrownblk
  1220    continue
          if (j .ge. 1 .and. arrowm .lt. nev) then
@@ -805,12 +847,18 @@ c        | If the last block taken was a 2x2 block straddling the   |
 c        | NEV boundary (a complex-conjugate pair that must not be  |
 c        | split), ARROWM = NEV+1. Adopt the same policy dngets     |
 c        | itself uses in that situation: grow NEV by one and       |
-c        | shrink NP, rather than treating this as an error. The    |
-c        | main loop re-derives NP from NEV at the top of the next  |
-c        | iteration, so updating both here keeps them consistent.  |
+c        | shrink NP, rather than treating this as an error. If     |
+c        | that would leave NP = 0, drop the pair instead so that   |
+c        | NP stays positive. The main loop re-derives NP from NEV  |
+c        | at the top of the next iteration, so updating both here  |
+c        | keeps them consistent.                                   |
 c        %----------------------------------------------------------%
 c
          if (arrowm .gt. nev) then
+            if (arrowm .ge. kplusp) then
+               arrowconsumed(arrowpick) = 0
+               arrowm = arrowm - arrowblocklen(arrowpick)
+            end if
             nev = arrowm
             np  = kplusp - nev
          end if

@@ -86,10 +86,7 @@ c                    need to be recomputed in forming OP * X.
 c          IDO =  2: compute  Y = B * X  where
 c                    IPNTR(1) is the pointer into WORKD for X,
 c                    IPNTR(2) is the pointer into WORKD for Y.
-c          IDO =  3: compute the IPARAM(8) real and imaginary parts
-c                    of the shifts where INPTR(14) is the pointer
-c                    into WORKL for placing the shifts. See Remark
-c                    5 below.
+c          IDO =  3: not used, since ISHIFT must be 1 (see IPARAM(1)).
 c          IDO = 99: done
 c          -------------------------------------------------------------
 c
@@ -147,22 +144,9 @@ c  LDV     Integer.  (INPUT)
 c          Leading dimension of V exactly as declared in the calling program.
 c
 c  IPARAM  Integer array of length 11.  (INPUT/OUTPUT)
-c          IPARAM(1) = ISHIFT: method for selecting the implicit shifts.
-c          The shifts selected at each iteration are used to restart
-c          the Arnoldi iteration in an implicit fashion.
-c          -------------------------------------------------------------
-c          ISHIFT = 0: the shifts are provided by the user via
-c                      reverse communication.  The real and imaginary
-c                      parts of the NCV eigenvalues of the Hessenberg
-c                      matrix H are returned in the part of the WORKL
-c                      array corresponding to RITZR and RITZI. See remark
-c                      5 below.
-c          ISHIFT = 1: exact shifts with respect to the current
-c                      Hessenberg matrix H.  This is equivalent to
-c                      restarting the iteration with a starting vector
-c                      that is a linear combination of approximate Schur
-c                      vectors associated with the "wanted" Ritz values.
-c          -------------------------------------------------------------
+c          IPARAM(1) = ISHIFT: must be 1.
+c          The restart keeps the wanted Schur vectors selected by WHICH,
+c          so shifts provided by the user (ISHIFT = 0) are not supported.
 c
 c          IPARAM(2) = No longer referenced.
 c
@@ -185,11 +169,7 @@ c          On INPUT determines what type of eigenproblem is being solved.
 c          Must be 1,2,3,4; See under \Description of dnaupd  for the
 c          four modes available.
 c
-c          IPARAM(8) = NP
-c          When ido = 3 and the user provides shifts through reverse
-c          communication (IPARAM(1)=0), dnaupd  returns NP, the number
-c          of shifts the user is to provide. 0 < NP <=NCV-NEV. See Remark
-c          5 below.
+c          IPARAM(8) = No longer referenced.
 c
 c          IPARAM(9) = NUMOP, IPARAM(10) = NUMOPB, IPARAM(11) = NUMREO,
 c          OUTPUT: NUMOP  = total number of OP*x operations,
@@ -274,7 +254,7 @@ c          = -8: Error return from LAPACK eigenvalue calculation;
 c          = -9: Starting vector is zero.
 c          = -10: IPARAM(7) must be 1,2,3,4.
 c          = -11: IPARAM(7) = 1 and BMAT = 'G' are incompatible.
-c          = -12: IPARAM(1) must be equal to 0 or 1.
+c          = -12: IPARAM(1) must be equal to 1.
 c          = -9999: Could not build an Arnoldi factorization.
 c                   IPARAM(5) returns the size of the current Arnoldi
 c                   factorization.
@@ -314,25 +294,7 @@ c     basis vectors.  The optimal "cross-over" with respect to CPU time
 c     is problem dependent and must be determined empirically.
 c     See Chapter 8 of Reference 2 for further information.
 c
-c  5. When IPARAM(1) = 0, and IDO = 3, the user needs to provide the
-c     NP = IPARAM(8) real and imaginary parts of the shifts in locations
-c         real part                  imaginary part
-c         -----------------------    --------------
-c     1   WORKL(IPNTR(14))           WORKL(IPNTR(14)+NP)
-c     2   WORKL(IPNTR(14)+1)         WORKL(IPNTR(14)+NP+1)
-c                        .                          .
-c                        .                          .
-c                        .                          .
-c     NP  WORKL(IPNTR(14)+NP-1)      WORKL(IPNTR(14)+2*NP-1).
-c
-c     Only complex conjugate pairs of shifts may be applied and the pairs
-c     must be placed in consecutive locations. The real part of the
-c     eigenvalues of the current upper Hessenberg matrix are located in
-c     WORKL(IPNTR(6)) through WORKL(IPNTR(6)+NCV-1) and the imaginary part
-c     in WORKL(IPNTR(7)) through WORKL(IPNTR(7)+NCV-1). They are ordered
-c     according to the order defined by WHICH. The complex conjugate
-c     pairs are kept together and the associated Ritz estimates are located in
-c     WORKL(IPNTR(8)), WORKL(IPNTR(8)+1), ... , WORKL(IPNTR(8)+NCV-1).
+c  5. Shifts provided by the user are not supported (see IPARAM(1)).
 c
 c-----------------------------------------------------------------------
 c
@@ -534,7 +496,7 @@ c
                                                 ierr = -10
          else if (mode .eq. 1 .and. bmat .eq. 'G') then
                                                 ierr = -11
-         else if (ishift .lt. 0 .or. ishift .gt. 1) then
+         else if (ishift .ne. 1) then
                                                 ierr = -12
          end if
 c
@@ -584,10 +546,9 @@ c        |                                   parts of ritz values      |
 c        | workl(ncv*ncv+2*ncv+1:ncv*ncv+3*ncv) := error bounds        |
 c        | workl(ncv*ncv+3*ncv+1:2*ncv*ncv+3*ncv) := rotation matrix Q |
 c        | workl(2*ncv*ncv+3*ncv+1:3*ncv*ncv+6*ncv) := workspace       |
-c        | The final workspace is needed by subroutine dneigh called   |
-c        | by dnaup2. Subroutine dneigh calls LAPACK routines for      |
-c        | calculating eigenvalues and the last row of the eigenvector |
-c        | matrix.                                                     |
+c        | The final workspace is used by dqaup2 to compute the        |
+c        | real Schur form of H and the eigenvectors of its            |
+c        | Schur matrix.                                               |
 c        %-------------------------------------------------------------%
 c
          ldh    = ncv

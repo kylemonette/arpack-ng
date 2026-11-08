@@ -90,10 +90,7 @@ c                    need to be recomputed in forming OP * X.
 c          IDO =  2: compute  Y = B * X  where
 c                    IPNTR(1) is the pointer into WORKD for X,
 c                    IPNTR(2) is the pointer into WORKD for Y.
-c          IDO =  3: compute the IPARAM(8) real and imaginary parts
-c                    of the shifts where INPTR(14) is the pointer
-c                    into WORKL for placing the shifts. See Remark
-c                    5 below.
+c          IDO =  3: not used, since ISHIFT must be 1 (see IPARAM(1)).
 c          IDO = 99: done
 c          -------------------------------------------------------------
 c
@@ -169,7 +166,8 @@ c          the convergence criterion.
 c
 c          IPARAM(6) = HARMFB (OUTPUT)
 c          1 if the iteration switched to Ritz values because H became
-c          numerically singular (see dhaup2), and 0 otherwise.
+c          numerically singular, or the harmonic pencil could not be
+c          computed or reordered (see dhaup2), and 0 otherwise.
 c
 c          IPARAM(7) = MODE
 c          On INPUT determines what type of eigenproblem is being solved.

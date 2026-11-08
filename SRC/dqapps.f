@@ -8,8 +8,8 @@ c  Given the Arnoldi factorization
 c
 c     A*V_{k} - V_{k}*H_{k} = r_{k+p}*e_{k+p}^T,
 c
-c  apply NP shifts implicitly (via the NONSYMMETRIC BORDERED restart,
-c  see \Remarks below) resulting in
+c  apply the bordered restart that keeps the KEV desired Schur vectors
+c  of H (see \Remarks below), resulting in
 c
 c     A*(V_{k}*X) - (V_{k}*X)*(Hk) = rnew_{k}*e_{k}^T
 c
@@ -105,7 +105,7 @@ c          unused -- kept for interface parity with DNAPPS.)
 c
 c  HOUSE   Logical.  (INPUT)
 c          Selects which routine reduces the (KEV+1) by (KEV+1)
-c          nonsymmetric arrowhead matrix to upper Hessenberg form:
+c          bordered matrix to upper Hessenberg form:
 c          .TRUE.  uses LAPACK's Householder reduction (DGEHRD/DORGHR).
 c          .FALSE. uses one-way Givens chasing (dahhgv).
 c
@@ -167,7 +167,7 @@ c         D <- | delta            c*e_m^T*Qk   |
 c              | c*Qk^T*e_m       Pi*Sk^T*Pi   |
 c
 c     DGEHRD/DORGHR are applied to THIS rotated matrix (called
-c     DROT below); the result is then implicitly un-rotated by simply
+c     DFLIP below); the result is then implicitly un-rotated by simply
 c     reading its entries back out with the same index reversal.
 c  3. Unlike DNAPPS, KEV is never adjusted inside this routine to
 c     avoid splitting a complex-conjugate pair -- the caller must
@@ -219,14 +219,11 @@ c     | Local Scalars |
 c     %---------------%
 c
       integer    i, j, kplusp, msglvl, houseinfo, lwork
-      logical    initd
-      save       initd
-      data       initd /.false./
       Double precision
      &           betak, qwork(1)
       Double precision
      &           d(kev+1,kev+1), qarrow(kev+1,kev+1),
-     &           drot(kev+1,kev+1), tau(kev),
+     &           dflip(kev+1,kev+1), tau(kev),
      &           qk1(kev,kev), qfinal(kev+np,kev)
       Double precision, allocatable, save :: housework(:), vnew(:,:)
 c
@@ -240,21 +237,6 @@ c
 c     %-----------------------%
 c     | Executable Statements |
 c     %-----------------------%
-c
-c     %----------------------------------------------------------%
-c     | debug.h/stat.h COMMON block variables aren't set up by   |
-c     | any ARPACK driver program here. Initialize the ones this |
-c     | routine reads/writes (LOGFIL/NDIGIT/MNAPPS/TNAPPS) once, |
-c     | the first time this routine is ever called.              |
-c     %----------------------------------------------------------%
-c
-      if (.not. initd) then
-         logfil = 6
-         ndigit = -3
-         mnapps = 0
-         tnapps = 0.0D+0
-         initd = .true.
-      end if
 c
 c     %-------------------------------%
 c     | Initialize timing statistics  |
@@ -282,10 +264,10 @@ c        | query calls (LWORK = -1) only inspect dimensions -- no array |
 c        | contents are referenced. 8*(KEV+1) is kept as a floor.       |
 c        %--------------------------------------------------------------%
 c
-         call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau, qwork, -1,
+         call dgehrd (kev+1, 1, kev+1, dflip, kev+1, tau, qwork, -1,
      &                houseinfo)
          lwork = int(qwork(1))
-         call dorghr (kev+1, 1, kev+1, drot, kev+1, tau, qwork, -1,
+         call dorghr (kev+1, 1, kev+1, dflip, kev+1, tau, qwork, -1,
      &                houseinfo)
          lwork = max(lwork, int(qwork(1)), 8*(kev+1))
          if (allocated(housework)) then
@@ -298,67 +280,67 @@ c
 c
 c        %---------------------------------------------------------------%
 c        | Build the ALREADY 180-degree-rotated (and transposed) (KEV+1) |
-c        | by (KEV+1) bordered matrix DROT. This is mathematically       |
+c        | by (KEV+1) bordered matrix DFLIP. This is mathematically      |
 c        | identical to building the natural downward-pointing bordered  |
 c        | and then applying the rotation of \Remarks (2), but without   |
 c        | ever forming that un-rotated matrix.                          |
 c        %---------------------------------------------------------------%
 c
-         drot(1,1) = zero
+         dflip(1,1) = zero
 c
          do 50 j = 2, kev+1
-            drot(1,j) = rnorm * qschur(kplusp, kev+2-j)
-            drot(j,1) = drot(1,j)
+            dflip(1,j) = rnorm * qschur(kplusp, kev+2-j)
+            dflip(j,1) = dflip(1,j)
    50    continue
 c
          do 70 j = 2, kev+1
             do 60 i = 2, kev+1
-               drot(i,j) = tschur(kev+2-j, kev+2-i)
+               dflip(i,j) = tschur(kev+2-j, kev+2-i)
    60       continue
    70    continue
 c
-c        %--------------------------------------------------------------%
-c        | Reduce DROT to upper Hessenberg form via LAPACK's general    |
-c        | Householder reduction. DGEHRD stores the Hessenberg matrix   |
-c        | on and above the first subdiagonal of DROT, and the          |
-c        | Householder vectors below it.                                |
-c        %--------------------------------------------------------------%
+c        %------------------------------------------------------------%
+c        | Reduce DFLIP to upper Hessenberg form via LAPACK's general |
+c        | Householder reduction. DGEHRD stores the Hessenberg matrix |
+c        | on and above the first subdiagonal of DFLIP, and the       |
+c        | Householder vectors below it.                              |
+c        %------------------------------------------------------------%
 c
-         call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau,
+         call dgehrd (kev+1, 1, kev+1, dflip, kev+1, tau,
      &                housework, lwork, houseinfo)
 c
-c        %--------------------------------------------------------------%
-c        | Read the new leading KEV by KEV upper Hessenberg H, and      |
-c        | BETAK (the new residual coupling), out of DROT by            |
-c        | un-rotating. All entries read lie on or above the            |
-c        | subdiagonal of DROT, so this is done before DORGHR           |
-c        | overwrites DROT with the explicit orthogonal matrix.         |
-c        %--------------------------------------------------------------%
+c        %-----------------------------------------------------------%
+c        | Read the new leading KEV by KEV upper Hessenberg H, and   |
+c        | BETAK = HNEW(KEV+1,KEV), out of DFLIP by un-rotating. All |
+c        | entries read lie on or above the subdiagonal of DFLIP, so |
+c        | this is done before DORGHR overwrites DFLIP with the      |
+c        | explicit orthogonal matrix.                               |
+c        %-----------------------------------------------------------%
 c
          if (kev .gt. 2) then
             call dlaset ('Lower', kev-2, kev-2, zero, zero, h(3,1), ldh)
          end if
          do 110 j = 1, kev
             do 100 i = 1, min(j+1,kev)
-               h(i,j) = drot(kev+2-j, kev+2-i)
+               h(i,j) = dflip(kev+2-j, kev+2-i)
   100       continue
   110    continue
 c
-         betak = drot(2,1)
+         betak = dflip(2,1)
 c
-         call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
+         call dorghr (kev+1, 1, kev+1, dflip, kev+1, tau,
      &                housework, lwork, houseinfo)
 c
-c        %--------------------------------------------------------------%
-c        | Build QFINAL = QSCHUR(:,1:kev) * QK1(1:kev,1:kev), the       |
-c        | KPLUSP by KEV transformation carrying V's current KPLUSP-    |
-c        | column basis directly onto the new KEV-column basis. QK1 is  |
-c        | read out of the now-orthogonal DROT with the same index      |
-c        | reversal used for H above.                                   |
-c        %--------------------------------------------------------------%
+c        %-------------------------------------------------------------%
+c        | Build QFINAL = QSCHUR(:,1:kev) * QK1(1:kev,1:kev), the      |
+c        | KPLUSP by KEV transformation carrying V's current KPLUSP-   |
+c        | column basis directly onto the new KEV-column basis. QK1 is |
+c        | read out of the now-orthogonal DFLIP with the same index    |
+c        | reversal used for H above.                                  |
+c        %-------------------------------------------------------------%
 c
          do 130 j = 1, kev
-            call dcopy (kev, drot(2,kev+2-j), -1, qk1(1,j), 1)
+            call dcopy (kev, dflip(2,kev+2-j), -1, qk1(1,j), 1)
   130    continue
 c
          call dgemm ('N', 'N', kplusp, kev, kev, one, qschur, ldqschur,

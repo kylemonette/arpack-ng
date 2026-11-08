@@ -919,15 +919,12 @@ c
      &                  arrowsortvec(1,j), 1)
  1190    continue
 c
-c        %---------------------------------------------------------%
-c        | Apply the NP0 implicit shifts by QR bulge chasing.      |
-c        | Each shift is applied to the entire tridiagonal matrix. |
-c        | The first 2*N locations of WORKD are used as workspace. |
-c        | HOUSE is passed straight through to drapps, which       |
-c        | itself selects Householder vs. Givens internally. After |
-c        | it is done, we have a Lanczos factorization of length   |
-c        | NEV.                                                    |
-c        %---------------------------------------------------------%
+c        %-------------------------------------------------------%
+c        | Apply the arrowhead restart: drapps keeps the NEV     |
+c        | desired eigenpairs selected above, and HOUSE selects  |
+c        | Householder or Givens tridiagonalization. After it is |
+c        | done, we have a Lanczos factorization of length NEV.  |
+c        %-------------------------------------------------------%
 c
          call drapps (n, nev, np, v, ldv, h, ldh, resid, rnorm, q, ldq,
      &        arrowsortval, arrowsortvec, ldh, workd, house)

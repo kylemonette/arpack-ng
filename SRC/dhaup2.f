@@ -31,7 +31,8 @@ c  be 1. Additionally:
 c
 c  HARMFB  Logical.  (OUTPUT)
 c          .TRUE. if the iteration switched to Ritz values because the
-c          harmonic pencil became too ill-conditioned.
+c          harmonic pencil became too ill-conditioned, or could not be
+c          computed or reordered (see \Remarks 3).
 c
 c\EndDoc
 c
@@ -118,6 +119,9 @@ c     ||y|| = 1, is ||HBAR*y - theta*[y; 0]||, computed directly.
 c  3. The smallest singular value of QH(1:m,1:m) is |U(m+1)|. If it
 c     falls below sqrt(eps), H is numerically singular and the harmonic
 c     values are unreliable, so Ritz values are used from then on.
+c     Ritz values are also used from then on if DHGEQZ, DTGEVC, or
+c     DTGSEN fails on the pencil, or a harmonic Ritz value is not
+c     finite; the current iteration is then redone with Ritz values.
 c
 c\EndLib
 c
@@ -192,6 +196,7 @@ c     | allocated and freed on every reverse-communication call.     |
 c     %--------------------------------------------------------------%
 c
       integer    i, iconj, nblk, pick, msel, lwork
+      logical    harmbad
       integer    iwork(1)
       integer, allocatable, save ::
      &           blockstart(:), blocklen(:), consumed(:)
@@ -439,6 +444,13 @@ c
 c
          lwork = 8*ldh + 16
 c
+c        %--------------------------------------------------%
+c        | The computation below restarts here with Ritz    |
+c        | values if a harmonic computation fails.          |
+c        %--------------------------------------------------%
+c
+   31    continue
+c
          if (.not. harmfb) then
 c
 c           %-------------------------------------------------%
@@ -500,21 +512,37 @@ c           %-------------------------------------------------%
 c           | Generalized real Schur form (HS,HP), with right  |
 c           | Schur vectors HZ in the y coordinates, and       |
 c           | theta = (ALPHAR + i*ALPHAI)/BETA. BETA is        |
-c           | nonzero since |U(m+1)| > 0.                      |
+c           | nonzero in exact arithmetic since |U(m+1)| > 0.  |
+c           | If DHGEQZ fails, or a computed value is not      |
+c           | finite, switch to Ritz values.                   |
 c           %-------------------------------------------------%
 c
             call dhgeqz ('S', 'N', 'V', kplusp, 1, kplusp, hs, ldh,
      &                   hp, ldh, halr, hali, hbet, qdum, 1, hz, ldh,
      &                   work, lwork, ierr)
-            if (ierr .ne. 0) then
-               info = -8
-               go to 1200
+            harmbad = ierr .ne. 0
+c
+            if (.not. harmbad) then
+               do 25 j = 1, kplusp
+                  if (hbet(j) .eq. zero) then
+                     harmbad = .true.
+                  else
+                     ritzr(j) = halr(j) / hbet(j)
+                     ritzi(j) = hali(j) / hbet(j)
+                     if (abs(ritzr(j)) .gt. huge(one) .or.
+     &                   abs(ritzi(j)) .gt. huge(one)) harmbad = .true.
+                  end if
+   25          continue
             end if
 c
-            do 25 j = 1, kplusp
-               ritzr(j) = halr(j) / hbet(j)
-               ritzi(j) = hali(j) / hbet(j)
-   25       continue
+            if (harmbad) then
+               harmfb = .true.
+               if (msglvl .gt. 0) then
+                  call ivout (logfil, 1, [ierr], ndigit,
+     &                 '_haup2: harmonic pencil failed, using Ritz')
+               end if
+               go to 31
+            end if
 c
 c           %------------------------------------------------%
 c           | Eigenvectors of the pencil, back transformed by |
@@ -525,8 +553,12 @@ c
             call dtgevc ('R', 'B', select, kplusp, hs, ldh, hp, ldh,
      &                   qdum, 1, q, ldq, kplusp, msel, work, ierr)
             if (ierr .ne. 0) then
-               info = -8
-               go to 1200
+               harmfb = .true.
+               if (msglvl .gt. 0) then
+                  call ivout (logfil, 1, [ierr], ndigit,
+     &                 '_haup2: DTGEVC failed, using Ritz')
+               end if
+               go to 31
             end if
          else
 c
@@ -921,6 +953,7 @@ c
    60    continue
 c
          msel = 0
+         pick = 0
          j = nblk
    65    continue
          if (j .ge. 1 .and. msel .lt. nev) then
@@ -933,10 +966,15 @@ c
 c
 c        %----------------------------------------------------------%
 c        | Keep a complex conjugate pair together at the NEV        |
-c        | boundary by increasing NEV by one.                       |
+c        | boundary by increasing NEV by one. If that would leave   |
+c        | NP = 0, drop the pair instead so that NP stays positive. |
 c        %----------------------------------------------------------%
 c
          if (msel .gt. nev) then
+            if (msel .ge. kplusp) then
+               consumed(pick) = 0
+               msel = msel - blocklen(pick)
+            end if
             nev = msel
             np  = kplusp - nev
          end if
@@ -952,7 +990,8 @@ c
 c           %------------------------------------------------%
 c           | Reorder the generalized Schur form so the NEV   |
 c           | selected values lead, and apply the harmonic    |
-c           | thick restart.                                  |
+c           | thick restart. If DTGSEN cannot reorder the     |
+c           | pencil, redo this iteration with Ritz values.   |
 c           %------------------------------------------------%
 c
             call dtgsen (0, .false., .true., select, kplusp, hs, ldh,
@@ -960,8 +999,12 @@ c
      &                   msel, pl, pr, dif, work, lwork, iwork, 1,
      &                   ierr)
             if (ierr .ne. 0 .or. msel .ne. nev) then
-               info = -8
-               go to 1200
+               harmfb = .true.
+               if (msglvl .gt. 0) then
+                  call ivout (logfil, 1, [ierr], ndigit,
+     &                 '_haup2: DTGSEN failed, using Ritz')
+               end if
+               go to 31
             end if
 c
             call dhapps (n, nev, np, v, ldv, h, ldh, resid, rnorm,

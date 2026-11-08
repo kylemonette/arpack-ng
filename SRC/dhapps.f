@@ -149,9 +149,6 @@ c     | Local Scalars |
 c     %---------------%
 c
       integer    i, j, kplusp, msglvl, houseinfo, lwork
-      logical    initd
-      save       initd
-      data       initd /.false./
       Double precision
      &           betak, pnorm, qwork(1)
 c
@@ -161,7 +158,7 @@ c     %-----------------------%
 c
       Double precision
      &           pvec(kev+np+1), coef(kev), hz(kev+np+1,kev),
-     &           hk(kev+1,kev), drot(kev+1,kev+1), tau(kev),
+     &           hk(kev+1,kev), dflip(kev+1,kev+1), tau(kev),
      &           qk(kev,kev), qfinal(kev+np,kev+1)
       Double precision, allocatable, save :: housework(:), vnew(:,:)
 c
@@ -184,19 +181,6 @@ c     %-----------------------%
 c     | Executable Statements |
 c     %-----------------------%
 c
-c     %----------------------------------------------------------%
-c     | Initialize the debug.h/stat.h COMMON variables used here |
-c     | the first time this routine is called.                   |
-c     %----------------------------------------------------------%
-c
-      if (.not. initd) then
-         logfil = 6
-         ndigit = -3
-         mnapps = 0
-         tnapps = 0.0D+0
-         initd = .true.
-      end if
-c
 c     %-------------------------------%
 c     | Initialize timing statistics  |
 c     | & message level for debugging |
@@ -218,10 +202,10 @@ c     | Workspace query for DGEHRD and DORGHR, with     |
 c     | 8*(KEV+1) as a floor.                           |
 c     %-------------------------------------------------%
 c
-      call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau, qwork, -1,
+      call dgehrd (kev+1, 1, kev+1, dflip, kev+1, tau, qwork, -1,
      &             houseinfo)
       lwork = int(qwork(1))
-      call dorghr (kev+1, 1, kev+1, drot, kev+1, tau, qwork, -1,
+      call dorghr (kev+1, 1, kev+1, dflip, kev+1, tau, qwork, -1,
      &             houseinfo)
       lwork = max(lwork, int(qwork(1)), 8*(kev+1))
       if (allocated(housework)) then
@@ -268,28 +252,28 @@ c
      &            zero, hk(kev+1,1), kev+1)
 c
 c     %--------------------------------------------------------%
-c     | DROT is [HK 0] rotated by 180 degrees and transposed:  |
-c     | DROT(i,j) = [HK 0](kev+2-j,kev+2-i). Its first row is  |
+c     | DFLIP is [HK 0] rotated by 180 degrees and transposed: |
+c     | DFLIP(i,j) = [HK 0](kev+2-j,kev+2-i). Its first row is |
 c     | zero.                                                  |
 c     %--------------------------------------------------------%
 c
-      call dlaset ('All', 1, kev+1, zero, zero, drot, kev+1)
+      call dlaset ('All', 1, kev+1, zero, zero, dflip, kev+1)
       do 40 j = 1, kev+1
          do 30 i = 2, kev+1
-            drot(i,j) = hk(kev+2-j, kev+2-i)
+            dflip(i,j) = hk(kev+2-j, kev+2-i)
    30    continue
    40 continue
 c
-c     %--------------------------------------------------------%
-c     | Reduce DROT to upper Hessenberg form, and rotate back  |
-c     | to obtain the new KEV by KEV upper Hessenberg H and    |
-c     | its subdiagonal coupling BETAK. These are read from    |
-c     | entries on or above the subdiagonal of DROT, before    |
-c     | DORGHR overwrites DROT with the orthogonal factor,     |
-c     | from which Qk is then read.                            |
-c     %--------------------------------------------------------%
+c     %---------------------------------------------------------%
+c     | Reduce DFLIP to upper Hessenberg form, and rotate back  |
+c     | to obtain the new KEV by KEV upper Hessenberg H and     |
+c     | BETAK = HNEW(KEV+1,KEV). These are read from entries on |
+c     | or above the subdiagonal of DFLIP, before DORGHR        |
+c     | overwrites DFLIP with the orthogonal factor, from which |
+c     | Qk is then read.                                        |
+c     %---------------------------------------------------------%
 c
-      call dgehrd (kev+1, 1, kev+1, drot, kev+1, tau,
+      call dgehrd (kev+1, 1, kev+1, dflip, kev+1, tau,
      &             housework, lwork, houseinfo)
 c
       if (kev .gt. 2) then
@@ -297,16 +281,16 @@ c
       end if
       do 60 j = 1, kev
          do 50 i = 1, min(j+1,kev)
-            h(i,j) = drot(kev+2-j, kev+2-i)
+            h(i,j) = dflip(kev+2-j, kev+2-i)
    50    continue
    60 continue
-      betak = drot(2,1)
+      betak = dflip(2,1)
 c
-      call dorghr (kev+1, 1, kev+1, drot, kev+1, tau,
+      call dorghr (kev+1, 1, kev+1, dflip, kev+1, tau,
      &             housework, lwork, houseinfo)
 c
       do 90 j = 1, kev
-         call dcopy (kev, drot(2,kev+2-j), -1, qk(1,j), 1)
+         call dcopy (kev, dflip(2,kev+2-j), -1, qk(1,j), 1)
    90 continue
 c
 c     %--------------------------------------------------------%

@@ -90,9 +90,7 @@ c                    need to be recomputed in forming OP * X.
 c          IDO =  2: compute  Y = B * X  where
 c                    IPNTR(1) is the pointer into WORKD for X,
 c                    IPNTR(2) is the pointer into WORKD for Y.
-c          IDO =  3: compute the IPARAM(8) shifts where
-c                    IPNTR(11) is the pointer into WORKL for
-c                    placing the shifts. See remark 6 below.
+c          IDO =  3: not used, since ISHIFT must be 1 (see IPARAM(1)).
 c          IDO = 99: done
 c          -------------------------------------------------------------
 c
@@ -152,21 +150,9 @@ c          Leading dimension of V exactly as declared in the calling
 c          program.
 c
 c  IPARAM  Integer array of length 11.  (INPUT/OUTPUT)
-c          IPARAM(1) = ISHIFT: method for selecting the implicit shifts.
-c          The shifts selected at each iteration are used to restart
-c          the Arnoldi iteration in an implicit fashion.
-c          -------------------------------------------------------------
-c          ISHIFT = 0: the shifts are provided by the user via
-c                      reverse communication.  The NCV eigenvalues of
-c                      the current tridiagonal matrix T are returned in
-c                      the part of WORKL array corresponding to RITZ.
-c                      See remark 6 below.
-c          ISHIFT = 1: exact shifts with respect to the reduced
-c                      tridiagonal matrix T.  This is equivalent to
-c                      restarting the iteration with a starting vector
-c                      that is a linear combination of Ritz vectors
-c                      associated with the "wanted" Ritz values.
-c          -------------------------------------------------------------
+c          IPARAM(1) = ISHIFT: must be 1.
+c          The restart keeps the wanted Ritz vectors selected by WHICH,
+c          so shifts provided by the user (ISHIFT = 0) are not supported.
 c
 c          IPARAM(2) = LEVEC
 c          No longer referenced. See remark 2 below.
@@ -190,11 +176,7 @@ c          On INPUT determines what type of eigenproblem is being solved.
 c          Must be 1,2,3,4,5; See under \Description of dsaupd  for the
 c          five modes available.
 c
-c          IPARAM(8) = NP
-c          When ido = 3 and the user provides shifts through reverse
-c          communication (IPARAM(1)=0), dsaupd  returns NP, the number
-c          of shifts the user is to provide. 0 < NP <=NCV-NEV. See Remark
-c          6 below.
+c          IPARAM(8) = No longer referenced.
 c
 c          IPARAM(9) = NUMOP, IPARAM(10) = NUMOPB, IPARAM(11) = NUMREO,
 c          OUTPUT: NUMOP  = total number of OP*x operations,
@@ -268,7 +250,7 @@ c                Informatinal error from LAPACK routine dsteqr .
 c          = -9: Starting vector is zero.
 c          = -10: IPARAM(7) must be 1,2,3,4,5.
 c          = -11: IPARAM(7) = 1 and BMAT = 'G' are incompatible.
-c          = -12: IPARAM(1) must be equal to 0 or 1.
+c          = -12: IPARAM(1) must be equal to 1.
 c          = -13: NEV and WHICH = 'BE' are incompatible.
 c          = -9999: Could not build an Arnoldi factorization.
 c                   IPARAM(5) returns the size of the current Arnoldi
@@ -318,19 +300,7 @@ c     When IPARAM(7) = 2 OP = inv(B)*A. After computing A*X the user
 c     must overwrite X with A*X. Y is then the solution to the linear set
 c     of equations B*Y = A*X.
 c
-c  6. When IPARAM(1) = 0, and IDO = 3, the user needs to provide the
-c     NP = IPARAM(8) shifts in locations:
-c     1   WORKL(IPNTR(11))
-c     2   WORKL(IPNTR(11)+1)
-c                        .
-c                        .
-c                        .
-c     NP  WORKL(IPNTR(11)+NP-1).
-c
-c     The eigenvalues of the current tridiagonal matrix are located in
-c     WORKL(IPNTR(6)) through WORKL(IPNTR(6)+NCV-1). They are in the
-c     order defined by WHICH. The associated Ritz estimates are located in
-c     WORKL(IPNTR(8)), WORKL(IPNTR(8)+1), ... , WORKL(IPNTR(8)+NCV-1).
+c  6. Shifts provided by the user are not supported (see IPARAM(1)).
 c
 c-----------------------------------------------------------------------
 c
@@ -540,7 +510,7 @@ c
                                                 ierr = -10
          else if (mode .eq. 1 .and. bmat .eq. 'G') then
                                                 ierr = -11
-         else if (ishift .lt. 0 .or. ishift .gt. 1) then
+         else if (ishift .ne. 1) then
                                                 ierr = -12
          else if (nev .eq. 1 .and. which .eq. 'BE') then
                                                 ierr = -13
