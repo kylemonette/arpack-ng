@@ -8,15 +8,16 @@ c  Intermediate level interface called by dhaupd.
 c
 c  Implements the thick-restarted Arnoldi iteration with harmonic Ritz
 c  vectors (target zero). After each Arnoldi expansion, the harmonic
-c  Ritz values, vectors, and residual norms of the current KEV+NP
-c  factorization are computed from the harmonic pencil (see \Remarks).
-c  These are used for the convergence test and for selecting the KEV
-c  values to keep, exactly as dnaup2 uses Ritz values. The restart is
-c  then applied by dhapps.
+c  Ritz values and residual norms of the current KEV+NP factorization
+c  are computed from the real Schur form of an (KEV+NP+1) by
+c  (KEV+NP+1) upper Hessenberg matrix HP (see \Remarks). These are used
+c  for the convergence test and for selecting the KEV values to keep,
+c  exactly as dnaup2 uses Ritz values. The restart is then applied by
+c  dhapps.
 c
-c  If the pencil becomes too ill-conditioned (see \Remarks), Ritz
-c  values are used for the remainder of the run, and the restart is
-c  applied by dqapps with Householder reflectors.
+c  If H becomes numerically singular (see \Remarks), Ritz values are
+c  used for the remainder of the run, and the restart is applied by
+c  dqapps with Householder reflectors.
 c
 c\Usage:
 c  call dhaup2
@@ -30,9 +31,9 @@ c  BOUNDS hold harmonic Ritz values and residual norms, and ISHIFT must
 c  be 1. Additionally:
 c
 c  HARMFB  Logical.  (OUTPUT)
-c          .TRUE. if the iteration switched to Ritz values because the
-c          harmonic pencil became too ill-conditioned, or could not be
-c          computed or reordered (see \Remarks 3).
+c          .TRUE. if the iteration switched to Ritz values because H
+c          became numerically singular, or the Schur form of HP could
+c          not be computed or reordered (see \Remarks 3).
 c
 c\EndDoc
 c
@@ -66,12 +67,6 @@ c     arscnd   ARPACK utility routine for timing.
 c     dmout    ARPACK utility routine that prints matrices
 c     dvout    ARPACK utility routine that prints vectors.
 c     dlartg   LAPACK routine that generates a plane rotation.
-c     dhgeqz   LAPACK routine that computes the generalized real Schur
-c              form of a Hessenberg-triangular pencil.
-c     dtgevc   LAPACK routine that computes eigenvectors of a pencil in
-c              generalized real Schur form.
-c     dtgsen   LAPACK routine that reorders a generalized real Schur
-c              form.
 c     dlahqr   LAPACK routine that computes the real Schur form of an
 c              upper Hessenberg matrix.
 c     dtrevc   LAPACK routine that computes eigenvectors of a matrix in
@@ -81,9 +76,8 @@ c     dlamch   LAPACK routine that determines machine constants.
 c     dlapy2   LAPACK routine to compute sqrt(x**2+y**2) carefully.
 c     dlacpy   LAPACK matrix copy routine.
 c     dlaset   LAPACK matrix initialization routine.
-c     dtrmm    Level 3 BLAS routine for triangular matrix times matrix.
+c     dtrmv    Level 2 BLAS routine for triangular matrix times vector.
 c     dgemv    Level 2 BLAS routine for matrix vector multiplication.
-c     drot    Level 1 BLAS that applies a plane rotation.
 c     daxpy    Level 1 BLAS that computes a vector triad.
 c     dcopy    Level 1 BLAS that copies one vector to another.
 c     ddot     Level 1 BLAS that computes the scalar product of two
@@ -102,26 +96,29 @@ c
 c\Remarks
 c  1. Let m = KEV+NP and HBAR = [H; RNORM*e_m^T] = QH*[R; 0], where
 c     QH = G_1*...*G_m is a product of plane rotations, G_j acting on
-c     coordinates j and j+1. A harmonic Ritz pair (theta,y) satisfies
-c         HBAR^T*(HBAR - theta*[I; 0])*y = 0,
-c     which is equivalent to R*y = theta*QH(1:m,1:m)^T*y. Since
-c     QH(1:m,1:m) = P*D, with P = G_1*...*G_{m-1} restricted to the
-c     first m coordinates and D = diag(1,...,1,U(m+1)), the change of
-c     variables y = P*w gives the pencil (R*P, D). It is already in
-c     Hessenberg-triangular form, and is reduced to generalized real
-c     Schur form with eigenvalues theta and right Schur vectors Z (in
-c     the y coordinates). The last column U = [-s_m*P(:,m); c_m] of QH
-c     spans the null space of HBAR^T. Equivalently, P^T*G*P = D^{-1}*R*P
-c     for the harmonic matrix G = H + RNORM**2*H^{-T}*e_m*e_m^T of
-c     Reference 3; the pencil avoids the division by U(m+1).
-c  2. The residual norm of the harmonic Ritz pair (theta, V*y), with
-c     ||y|| = 1, is ||HBAR*y - theta*[y; 0]||, computed directly.
-c  3. The smallest singular value of QH(1:m,1:m) is |U(m+1)|. If it
+c     coordinates j and j+1. The last column U of QH spans the null
+c     space of HBAR^T. With E = -U(1:m)/U(m+1), the (m+1) by (m+1)
+c     upper Hessenberg matrix
+c         HP = [HBAR, HBAR*E]
+c     has as eigenvalues the harmonic Ritz values, i.e., the eigenvalues
+c     of G = H + RNORM**2*H^{-T}*e_m*e_m^T, together with zero, whose
+c     eigenvector is U. The restart keeps the NEV wanted harmonic Ritz
+c     values and zero (see dhapps).
+c  2. A unit eigenvector v of HP with eigenvalue theta /= 0 is
+c     orthogonal to U and gives the harmonic Ritz vector y = [I, E]*v.
+c     With r = |v(m+1)|/|U(m+1)|, ||y|| = sqrt(1+r^2) and the residual
+c     norm of the harmonic Ritz pair (theta, V*y/||y||) is
+c     |theta|*r/sqrt(1+r^2). Since U is both a left and a right
+c     eigenvector of HP for zero, it is a Schur vector of HP. The zero
+c     eigenvalue is therefore at the position of the largest entry of
+c     HZ^T*U, which is identified this way rather than by magnitude,
+c     since a harmonic Ritz value may also be close to zero.
+c  3. Since 1/U(m+1)**2 = 1 + RNORM**2*||H^{-T}*e_m||**2, if |U(m+1)|
 c     falls below sqrt(eps), H is numerically singular and the harmonic
 c     values are unreliable, so Ritz values are used from then on.
-c     Ritz values are also used from then on if DHGEQZ, DTGEVC, or
-c     DTGSEN fails on the pencil, or a harmonic Ritz value is not
-c     finite; the current iteration is then redone with Ritz values.
+c     Ritz values are also used from then on if DLAHQR, DTREVC, or
+c     DTRSEN fails on HP; the current iteration is then redone with
+c     Ritz values.
 c
 c\EndLib
 c
@@ -190,38 +187,36 @@ c
 c
 c     %--------------------------------------------------------------%
 c     | Workspace for the Schur forms and block selection, sized by  |
-c     | LDH (the size in use is KPLUSP <= LDH). The arrays are SAVEd |
-c     | allocatables, allocated with HS below, so that they are not  |
-c     | allocated and freed on every reverse-communication call.     |
+c     | LDH+1 (the size in use is at most KPLUSP+1 <= LDH+1). The    |
+c     | arrays are SAVEd allocatables, allocated with HS below, so   |
+c     | that they are not allocated and freed on every reverse-      |
+c     | communication call.                                          |
 c     %--------------------------------------------------------------%
 c
-      integer    i, iconj, nblk, pick, msel, lwork
-      logical    harmbad
+      integer    i, iconj, nblk, pick, msel, lwork, mp, ntot, izero
       integer    iwork(1)
       integer, allocatable, save ::
      &           blockstart(:), blocklen(:), consumed(:)
       logical, allocatable, save ::
      &           select(:)
       Double precision
-     &           dif(2), qdum(1), sep1, sep2, pl, pr, rtmp
+     &           qdum(1), sep1, sep2, rtmp, uinv
       Double precision, allocatable, save ::
      &           work(:), eig1r(:), eig1i(:), bidx(:),
      &           rc(:), rs(:)
 c
-c     %---------------------------------------------------------------%
-c     | HS/HP:   Schur form (or the pencil's generalized Schur form). |
-c     | HZ:      right Schur vectors.                                 |
-c     | HU:      last column U of the orthogonal factor QH of HBAR.  |
-c     | HW:      HBAR, then HBAR times the eigenvectors.              |
-c     | HWR/HWI: eigenvalues in Schur order.                          |
-c     | HALR/HALI/HBET: generalized eigenvalues of the pencil.        |
-c     | SAVEd, since they are used across the B*x reverse             |
-c     | communication exit at the end of an iteration.                |
-c     %---------------------------------------------------------------%
+c     %------------------------------------------------------------%
+c     | HS:      Schur form of HP (or of H for Ritz values).       |
+c     | HZ:      Schur vectors.                                    |
+c     | HV:      eigenvectors of HS (harmonic Ritz values).        |
+c     | HU:      last column U of the orthogonal factor QH of HBAR. |
+c     | HWR/HWI: eigenvalues in Schur order.                       |
+c     | SAVEd, since they are used across the B*x reverse          |
+c     | communication exit at the end of an iteration.             |
+c     %------------------------------------------------------------%
 c
       Double precision, allocatable, save ::
-     &           hs(:,:), hp(:,:), hz(:,:), hu(:), hw(:,:),
-     &           hwr(:), hwi(:), halr(:), hali(:), hbet(:)
+     &           hs(:,:), hz(:,:), hv(:,:), hu(:), hwr(:), hwi(:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -229,18 +224,18 @@ c     %----------------------%
 c
       external   dcopy  , dgetv0 , dnaitr , dnconv , dngets ,
      &           dhapps , dqapps , dvout  , ivout  , arscnd ,
-     &           dmout  , dsortc , dlartg , dhgeqz ,
-     &           dtgevc , dtgsen , dlahqr , dtrevc , dtrsen ,
-     &           dlacpy , dlaset , dtrmm  , drot   ,
-     &           daxpy  , dscal  , dgemv
+     &           dmout  , dsortc , dlartg , dlahqr , dtrevc ,
+     &           dtrsen , dlacpy , dlaset , dtrmv  , daxpy  ,
+     &           dscal  , dgemv
 c
 c     %--------------------%
 c     | External Functions |
 c     %--------------------%
 c
+      integer    idamax
       Double precision
      &           ddot , dnrm2 , dlapy2 , dlamch
-      external   ddot , dnrm2 , dlapy2 , dlamch
+      external   ddot , dnrm2 , dlapy2 , dlamch , idamax
 c
 c     %---------------------%
 c     | Intrinsic Functions |
@@ -305,19 +300,19 @@ c
          end if
 c
          if (allocated(hs)) then
-            if (size(hs,1) .ne. ldh) then
-               deallocate (hs, hp, hz, hu, hw, hwr, hwi, halr, hali,
-     &                     hbet, blockstart, blocklen, consumed,
-     &                     select, work, eig1r, eig1i, bidx, rc, rs)
+            if (size(hs,1) .ne. ldh+1) then
+               deallocate (hs, hz, hv, hu, hwr, hwi,
+     &                     blockstart, blocklen, consumed, select,
+     &                     work, eig1r, eig1i, bidx, rc, rs)
             end if
          end if
          if (.not. allocated(hs)) then
-            allocate (hs(ldh,ldh), hp(ldh,ldh), hz(ldh,ldh),
-     &                hu(ldh+1), hw(ldh+1,ldh), hwr(ldh),
-     &                hwi(ldh), halr(ldh), hali(ldh), hbet(ldh),
-     &                blockstart(ldh), blocklen(ldh), consumed(ldh),
-     &                select(ldh), work(8*ldh+16), eig1r(ldh),
-     &                eig1i(ldh), bidx(ldh), rc(ldh), rs(ldh))
+            allocate (hs(ldh+1,ldh+1), hz(ldh+1,ldh+1),
+     &                hv(ldh+1,ldh+1), hu(ldh+1), hwr(ldh+1),
+     &                hwi(ldh+1), blockstart(ldh+1), blocklen(ldh+1),
+     &                consumed(ldh+1), select(ldh+1), work(8*ldh+16),
+     &                eig1r(ldh+1), eig1i(ldh+1), bidx(ldh+1),
+     &                rc(ldh), rs(ldh))
          end if
       end if
 c
@@ -453,24 +448,23 @@ c
 c
          if (.not. harmfb) then
 c
-c           %-------------------------------------------------%
-c           | Givens QR of HBAR = [H; RNORM*e_m^T] in HW, with |
-c           | the rotations stored in RC and RS.               |
-c           %-------------------------------------------------%
+c           %--------------------------------------------------%
+c           | Givens QR of HBAR = [H; RNORM*e_m^T], with the    |
+c           | rotations stored in RC and RS. Since R is not     |
+c           | needed, only the row of HBAR being reduced is     |
+c           | kept, in WORK: rotation j combines WORK(j:m) with |
+c           | row j+1 of H and keeps the second row.            |
+c           %--------------------------------------------------%
 c
-            call dlacpy ('Upper', kplusp, kplusp, h, ldh, hw, ldh+1)
-            do 21 j = 1, kplusp-1
-               hw(j+1,j) = h(j+1,j)
-   21       continue
-            hw(kplusp+1,kplusp) = rnorm
-            do 22 j = 1, kplusp
-               call dlartg (hw(j,j), hw(j+1,j), rc(j), rs(j), rtmp)
-               hw(j,j) = rtmp
-               if (j .lt. kplusp) then
-                  call drot (kplusp-j, hw(j,j+1), ldh+1, hw(j+1,j+1),
-     &                       ldh+1, rc(j), rs(j))
-               end if
+            call dcopy (kplusp, h, ldh, work, 1)
+            do 22 j = 1, kplusp-1
+               call dlartg (work(j), h(j+1,j), rc(j), rs(j), rtmp)
+               call dscal (kplusp-j, -rs(j), work(j+1), 1)
+               call daxpy (kplusp-j, rc(j), h(j+1,j+1), ldh,
+     &                     work(j+1), 1)
    22       continue
+            call dlartg (work(kplusp), rnorm, rc(kplusp), rs(kplusp),
+     &                   rtmp)
 c
 c           %------------------------------------------------%
 c           | Switch to Ritz values if |U(m+1)| = |RC(m)| is |
@@ -488,78 +482,115 @@ c
 c
          if (.not. harmfb) then
 c
-c           %-------------------------------------------------%
-c           | Hessenberg-triangular pencil (R*P, D) in HS, HP, |
-c           | with HZ = P and HU = U (\Remarks 1).             |
-c           %-------------------------------------------------%
+c           %--------------------------------------------------%
+c           | U = QH*e_{m+1} from the rotations (\Remarks 1).  |
+c           %--------------------------------------------------%
 c
-            call dlaset ('Lower', kplusp-1, kplusp-1, zero, zero,
-     &                   hs(2,1), ldh)
-            call dlacpy ('Upper', kplusp, kplusp, hw, ldh+1, hs, ldh)
-            call dlaset ('All', kplusp, kplusp, zero, one, hz, ldh)
-            do 23 j = 1, kplusp-1
-               call drot (j+1, hs(1,j), 1, hs(1,j+1), 1, rc(j), rs(j))
-               call drot (j+1, hz(1,j), 1, hz(1,j+1), 1, rc(j), rs(j))
+            mp = kplusp + 1
+            hu(mp) = rc(kplusp)
+            temp = -rs(kplusp)
+            do 23 j = kplusp-1, 1, -1
+               hu(j+1) = rc(j) * temp
+               temp = -rs(j) * temp
    23       continue
-            do 24 i = 1, kplusp
-               hu(i) = -rs(kplusp) * hz(i,kplusp)
-   24       continue
-            hu(kplusp+1) = rc(kplusp)
-            call dlaset ('All', kplusp, kplusp, zero, one, hp, ldh)
-            hp(kplusp,kplusp) = rc(kplusp)
+            hu(1) = temp
+            uinv = one / hu(mp)
 c
-c           %-------------------------------------------------%
-c           | Generalized real Schur form (HS,HP), with right  |
-c           | Schur vectors HZ in the y coordinates, and       |
-c           | theta = (ALPHAR + i*ALPHAI)/BETA. BETA is        |
-c           | nonzero in exact arithmetic since |U(m+1)| > 0.  |
-c           | If DHGEQZ fails, or a computed value is not      |
-c           | finite, switch to Ritz values.                   |
-c           %-------------------------------------------------%
+c           %--------------------------------------------------%
+c           | HP = [HBAR, HBAR*E] in HS, where                 |
+c           | HBAR*E = -HBAR*U(1:m)/U(m+1) is formed from the  |
+c           | upper triangle of H and then its subdiagonal.    |
+c           | Entries below the subdiagonal are zero.          |
+c           %--------------------------------------------------%
 c
-            call dhgeqz ('S', 'N', 'V', kplusp, 1, kplusp, hs, ldh,
-     &                   hp, ldh, halr, hali, hbet, qdum, 1, hz, ldh,
-     &                   work, lwork, ierr)
-            harmbad = ierr .ne. 0
+            call dlaset ('Lower', mp-2, mp-2, zero, zero, hs(3,1),
+     &                   ldh+1)
+            call dlacpy ('Upper', kplusp, kplusp, h, ldh, hs, ldh+1)
+            call dcopy (kplusp, hu, 1, hs(1,mp), 1)
+            call dtrmv ('Upper', 'No transpose', 'Non-unit', kplusp,
+     &                  h, ldh, hs(1,mp), 1)
+            do 25 j = 1, kplusp-1
+               hs(j+1,j) = h(j+1,j)
+               hs(j+1,mp) = hs(j+1,mp) + h(j+1,j) * hu(j)
+   25       continue
+            hs(mp,kplusp) = rnorm
+            hs(mp,mp) = rnorm * hu(kplusp)
+            call dscal (mp, -uinv, hs(1,mp), 1)
 c
-            if (.not. harmbad) then
-               do 25 j = 1, kplusp
-                  if (hbet(j) .eq. zero) then
-                     harmbad = .true.
-                  else
-                     ritzr(j) = halr(j) / hbet(j)
-                     ritzi(j) = hali(j) / hbet(j)
-                     if (abs(ritzr(j)) .gt. huge(one) .or.
-     &                   abs(ritzi(j)) .gt. huge(one)) harmbad = .true.
-                  end if
-   25          continue
+c           %--------------------------------------------------%
+c           | Real Schur form HS = HZ^T*HP*HZ, eigenvalues in  |
+c           | HWR and HWI, and eigenvectors of HS in HV. If    |
+c           | DLAHQR or DTREVC fails, switch to Ritz values.   |
+c           %--------------------------------------------------%
+c
+            call dlaset ('All', mp, mp, zero, one, hz, ldh+1)
+            call dlahqr (.true., .true., mp, 1, mp, hs, ldh+1, hwr, hwi,
+     &                   1, mp, hz, ldh+1, ierr)
+            if (ierr .eq. 0) then
+               call dtrevc ('R', 'A', select, mp, hs, ldh+1, qdum, 1,
+     &                      hv, ldh+1, mp, msel, work, ierr)
             end if
-c
-            if (harmbad) then
-               harmfb = .true.
-               if (msglvl .gt. 0) then
-                  call ivout (logfil, 1, [ierr], ndigit,
-     &                 '_haup2: harmonic pencil failed, using Ritz')
-               end if
-               go to 31
-            end if
-c
-c           %------------------------------------------------%
-c           | Eigenvectors of the pencil, back transformed by |
-c           | HZ, stored in Q.                                |
-c           %------------------------------------------------%
-c
-            call dlacpy ('All', kplusp, kplusp, hz, ldh, q, ldq)
-            call dtgevc ('R', 'B', select, kplusp, hs, ldh, hp, ldh,
-     &                   qdum, 1, q, ldq, kplusp, msel, work, ierr)
             if (ierr .ne. 0) then
                harmfb = .true.
                if (msglvl .gt. 0) then
                   call ivout (logfil, 1, [ierr], ndigit,
-     &                 '_haup2: DTGEVC failed, using Ritz')
+     &                 '_haup2: Schur form of HP failed, using Ritz')
                end if
                go to 31
             end if
+c
+c           %--------------------------------------------------%
+c           | IZERO is the position of the zero eigenvalue of  |
+c           | HP, where HZ^T*U = +-e_{IZERO} (\Remarks 2).     |
+c           %--------------------------------------------------%
+c
+            call dgemv ('T', mp, mp, one, hz, ldh+1, hu, 1, zero,
+     &                  work, 1)
+            izero = idamax (mp, work, 1)
+            if (hwi(izero) .ne. zero) then
+               harmfb = .true.
+               if (msglvl .gt. 0) then
+                  call ivout (logfil, 1, [izero], ndigit,
+     &                 '_haup2: zero eigenvalue of HP not found')
+               end if
+               go to 31
+            end if
+c
+c           %--------------------------------------------------%
+c           | Harmonic Ritz values in Schur order, skipping    |
+c           | IZERO, with residual norms (\Remarks 2). WORK(j) |
+c           | = HZ(m+1,:)*HV(:,j) is the last component of the |
+c           | j-th eigenvector of HP, which is divided by the  |
+c           | norm of the eigenvector, where a complex pair is |
+c           | stored as (real, imag) in consecutive columns of |
+c           | HV. Column j of HV is zero below row j (or j+1   |
+c           | for the first column of a complex pair).         |
+c           %--------------------------------------------------%
+c
+            call dgemv ('T', mp, mp, one, hv, ldh+1, hz(mp,1), ldh+1,
+     &                  zero, work, 1)
+c
+            i = 0
+            iconj = 0
+            do 26 j = 1, mp
+               if (j .ne. izero) then
+                  i = i + 1
+                  ritzr(i) = hwr(j)
+                  ritzi(i) = hwi(j)
+                  if (hwi(j) .eq. zero) then
+                     rtmp = abs(work(j) * uinv) / dnrm2 (j, hv(1,j), 1)
+                  else if (iconj .eq. 0) then
+                     rtmp = dlapy2 (work(j), work(j+1)) * abs(uinv)
+     &                      / dlapy2 (dnrm2 (j+1, hv(1,j), 1),
+     &                                dnrm2 (j+1, hv(1,j+1), 1))
+                     iconj = 1
+                  else
+                     iconj = 0
+                  end if
+                  bounds(i) = dlapy2 (hwr(j), hwi(j)) * rtmp
+     &                        / dlapy2 (one, rtmp)
+               end if
+   26       continue
          else
 c
 c           %-------------------------------------------------%
@@ -567,121 +598,57 @@ c           | Real Schur form HS = HZ^T*H*HZ, and the         |
 c           | eigenvectors of HS stored in Q.                 |
 c           %-------------------------------------------------%
 c
-            call dlacpy ('All', kplusp, kplusp, h, ldh, hs, ldh)
-            call dlaset ('All', kplusp, kplusp, zero, one, hz, ldh)
-            call dlahqr (.true., .true., kplusp, 1, kplusp, hs, ldh,
-     &                   ritzr, ritzi, 1, kplusp, hz, ldh, ierr)
+            call dlacpy ('All', kplusp, kplusp, h, ldh, hs, ldh+1)
+            call dlaset ('All', kplusp, kplusp, zero, one, hz, ldh+1)
+            call dlahqr (.true., .true., kplusp, 1, kplusp, hs, ldh+1,
+     &                   ritzr, ritzi, 1, kplusp, hz, ldh+1, ierr)
             if (ierr .ne. 0) then
                info = -8
                go to 1200
             end if
 c
-            call dtrevc ('R', 'A', select, kplusp, hs, ldh, qdum, 1,
+            call dtrevc ('R', 'A', select, kplusp, hs, ldh+1, qdum, 1,
      &                   q, ldq, kplusp, msel, work, ierr)
             if (ierr .ne. 0) then
                info = -8
                go to 1200
             end if
-         end if
 c
-c        %--------------------------------------------------%
-c        | Scale the eigenvectors to unit euclidean norm,   |
-c        | where a complex pair is stored as (real, imag)   |
-c        | in consecutive columns.                          |
-c        %--------------------------------------------------%
+c           %--------------------------------------------------%
+c           | Ritz estimates RNORM*|e_m^T*HZ*y|, where y is a  |
+c           | unit eigenvector of HS. WORKL(j) = HZ(m,:)*Q(:,j) |
+c           | is divided by the norm of Q(:,j), where a complex |
+c           | pair is stored as (real, imag) in consecutive    |
+c           | columns of Q. Column j of Q is zero below row j  |
+c           | (or j+1 for the first column of a complex pair). |
+c           %--------------------------------------------------%
 c
-         iconj = 0
-         do 26 j = 1, kplusp
-            if ( abs( ritzi(j) ) .le. zero ) then
-               temp = dnrm2( kplusp, q(1,j), 1 )
-               call dscal ( kplusp, one / temp, q(1,j), 1 )
-            else
-               if (iconj .eq. 0) then
-                  temp = dlapy2( dnrm2( kplusp, q(1,j), 1 ),
-     &                           dnrm2( kplusp, q(1,j+1), 1 ) )
-                  call dscal ( kplusp, one / temp, q(1,j), 1 )
-                  call dscal ( kplusp, one / temp, q(1,j+1), 1 )
+            call dgemv ('T', kplusp, kplusp, one, q, ldq, hz(kplusp,1),
+     &                  ldh+1, zero, workl, 1)
+            iconj = 0
+            do 29 j = 1, kplusp
+               if (ritzi(j) .eq. zero) then
+                  bounds(j) = rnorm * abs(workl(j))
+     &                        / dnrm2 (j, q(1,j), 1)
+               else if (iconj .eq. 0) then
+                  bounds(j) = rnorm * dlapy2 (workl(j), workl(j+1))
+     &                        / dlapy2 (dnrm2 (j+1, q(1,j), 1),
+     &                                  dnrm2 (j+1, q(1,j+1), 1))
+                  bounds(j+1) = bounds(j)
                   iconj = 1
                else
                   iconj = 0
                end if
-            end if
-   26    continue
-c
-         if (.not. harmfb) then
-c
-c           %------------------------------------------------%
-c           | Residual norms ||HBAR*y - theta*[y; 0]||        |
-c           | (\Remarks 2), with HW = HBAR*Q formed from the  |
-c           | upper triangle of H and then its subdiagonal.   |
-c           %------------------------------------------------%
-c
-            call dlacpy ('All', kplusp, kplusp, q, ldq, hw, ldh+1)
-            call dtrmm ('Left', 'Upper', 'No transpose', 'Non-unit',
-     &                  kplusp, kplusp, one, h, ldh, hw, ldh+1)
-            do 27 i = 1, kplusp-1
-               call daxpy (kplusp, h(i+1,i), q(i,1), ldq, hw(i+1,1),
-     &                     ldh+1)
-   27       continue
-            call dcopy (kplusp, q(kplusp,1), ldq, hw(kplusp+1,1), ldh+1)
-            call dscal (kplusp, rnorm, hw(kplusp+1,1), ldh+1)
-c
-            iconj = 0
-            do 28 j = 1, kplusp
-               if ( abs( ritzi(j) ) .le. zero ) then
-                  call daxpy (kplusp, -ritzr(j), q(1,j), 1, hw(1,j), 1)
-                  bounds(j) = dnrm2 (kplusp+1, hw(1,j), 1)
-               else
-                  if (iconj .eq. 0) then
-                     call daxpy (kplusp, -ritzr(j), q(1,j), 1,
-     &                           hw(1,j), 1)
-                     call daxpy (kplusp, ritzi(j), q(1,j+1), 1,
-     &                           hw(1,j), 1)
-                     call daxpy (kplusp, -ritzr(j), q(1,j+1), 1,
-     &                           hw(1,j+1), 1)
-                     call daxpy (kplusp, -ritzi(j), q(1,j), 1,
-     &                           hw(1,j+1), 1)
-                     bounds(j) = dlapy2( dnrm2(kplusp+1, hw(1,j), 1),
-     &                                   dnrm2(kplusp+1, hw(1,j+1), 1) )
-                     bounds(j+1) = bounds(j)
-                     iconj = 1
-                  else
-                     iconj = 0
-                  end if
-               end if
-   28       continue
-         else
-c
-c           %------------------------------------------------%
-c           | Ritz estimates RNORM*|e_m^T*HZ*y|, where y is  |
-c           | an eigenvector of HS.                          |
-c           %------------------------------------------------%
-c
-            call dgemv ('T', kplusp, kplusp, one, q, ldq, hz(kplusp,1),
-     &                  ldh, zero, workl, 1)
-            iconj = 0
-            do 29 j = 1, kplusp
-               if ( abs( ritzi(j) ) .le. zero ) then
-                  bounds(j) = rnorm * abs( workl(j) )
-               else
-                  if (iconj .eq. 0) then
-                     bounds(j) = rnorm * dlapy2( workl(j), workl(j+1) )
-                     bounds(j+1) = bounds(j)
-                     iconj = 1
-                  else
-                     iconj = 0
-                  end if
-               end if
    29       continue
+c
+c           %------------------------------------------------%
+c           | Eigenvalues in Schur order, used to select the |
+c           | blocks kept by the restart.                    |
+c           %------------------------------------------------%
+c
+            call dcopy (kplusp, ritzr, 1, hwr, 1)
+            call dcopy (kplusp, ritzi, 1, hwi, 1)
          end if
-c
-c        %------------------------------------------------%
-c        | Eigenvalues in Schur order, used to select the |
-c        | blocks kept by the restart.                    |
-c        %------------------------------------------------%
-c
-         call dcopy (kplusp, ritzr, 1, hwr, 1)
-         call dcopy (kplusp, ritzi, 1, hwi, 1)
 c
 c        %----------------------------------------------------%
 c        | Make a copy of eigenvalues and corresponding error |
@@ -918,16 +885,25 @@ c
 c
 c        %----------------------------------------------------------%
 c        | Partition the Schur form into its 1x1 and 2x2 diagonal   |
-c        | blocks, each represented by its eigenvalue.              |
+c        | blocks, each represented by its eigenvalue. For harmonic |
+c        | Ritz values, the Schur form is of order KPLUSP+1 and the |
+c        | zero eigenvalue at IZERO is not a block, since it is     |
+c        | always kept.                                             |
 c        %----------------------------------------------------------%
 c
+         ntot = kplusp
+         if (.not. harmfb) ntot = kplusp + 1
          nblk = 0
          i = 1
    55    continue
-         if (i .le. kplusp) then
+         if (i .le. ntot) then
+            if (.not. harmfb .and. i .eq. izero) then
+               i = i + 1
+               go to 55
+            end if
             nblk = nblk + 1
             blockstart(nblk) = i
-            if (i .lt. kplusp .and. abs(hs(i+1,i)) .gt. zero) then
+            if (i .lt. ntot .and. abs(hs(i+1,i)) .gt. zero) then
                blocklen(nblk) = 2
                i = i + 2
             else
@@ -988,27 +964,27 @@ c
          if (.not. harmfb) then
 c
 c           %------------------------------------------------%
-c           | Reorder the generalized Schur form so the NEV   |
-c           | selected values lead, and apply the harmonic    |
-c           | thick restart. If DTGSEN cannot reorder the     |
-c           | pencil, redo this iteration with Ritz values.   |
+c           | Reorder the Schur form of HP so the NEV        |
+c           | selected values and zero lead, and apply the   |
+c           | harmonic thick restart. If DTRSEN cannot       |
+c           | reorder, redo this iteration with Ritz values. |
 c           %------------------------------------------------%
 c
-            call dtgsen (0, .false., .true., select, kplusp, hs, ldh,
-     &                   hp, ldh, halr, hali, hbet, qdum, 1, hz, ldh,
-     &                   msel, pl, pr, dif, work, lwork, iwork, 1,
-     &                   ierr)
-            if (ierr .ne. 0 .or. msel .ne. nev) then
+            select(izero) = .true.
+            call dtrsen ('N', 'V', select, ntot, hs, ldh+1, hz, ldh+1,
+     &                   hwr, hwi, msel, sep1, sep2, work, lwork,
+     &                   iwork, 1, ierr)
+            if (ierr .ne. 0 .or. msel .ne. nev+1) then
                harmfb = .true.
                if (msglvl .gt. 0) then
                   call ivout (logfil, 1, [ierr], ndigit,
-     &                 '_haup2: DTGSEN failed, using Ritz')
+     &                 '_haup2: DTRSEN failed on HP, using Ritz')
                end if
                go to 31
             end if
 c
             call dhapps (n, nev, np, v, ldv, h, ldh, resid, rnorm,
-     &                   hz, ldh, hu)
+     &                   hs, ldh+1, hz, ldh+1)
          else
 c
 c           %------------------------------------------------%
@@ -1016,7 +992,7 @@ c           | Reorder the Schur form so the NEV selected     |
 c           | values lead, and apply the bordered restart.   |
 c           %------------------------------------------------%
 c
-            call dtrsen ('N', 'V', select, kplusp, hs, ldh, hz, ldh,
+            call dtrsen ('N', 'V', select, kplusp, hs, ldh+1, hz, ldh+1,
      &                   hwr, hwi, msel, sep1, sep2, work, lwork,
      &                   iwork, 1, ierr)
             if (ierr .ne. 0 .or. msel .ne. nev) then
@@ -1025,7 +1001,7 @@ c
             end if
 c
             call dqapps (n, nev, np, v, ldv, h, ldh, resid, rnorm,
-     &                   q, ldq, hs, ldh, hz, ldh, workd, .true.)
+     &                   q, ldq, hs, ldh+1, hz, ldh+1, workd, .true.)
          end if
 c
 c        %---------------------------------------------%
