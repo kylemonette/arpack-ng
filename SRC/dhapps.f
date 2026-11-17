@@ -17,7 +17,8 @@ c  where HNEW_{k} is upper Hessenberg.
 c
 c\Usage:
 c  call dhapps
-c     ( N, KEV, NP, V, LDV, H, LDH, RESID, RNORM, Z, LDZ, U )
+c     ( N, KEV, NP, V, LDV, H, LDH, RESID, RNORM, TSCHUR, LDTSCHUR,
+c       QSCHUR, LDQSCHUR )
 c
 c\Arguments
 c  N       Integer.  (INPUT)
@@ -25,7 +26,8 @@ c          Problem size, i.e. dimension of matrix A.
 c
 c  KEV     Integer.  (INPUT)
 c          Size of the updated factorization. The caller ensures that
-c          Z(:,1:KEV) does not split a complex conjugate pair.
+c          the leading KEV+1 by KEV+1 block of TSCHUR does not split a
+c          complex conjugate pair.
 c
 c  NP      Integer.  (INPUT)
 c          Number of harmonic Ritz values being discarded.
@@ -39,10 +41,9 @@ c  LDV     Integer.  (INPUT)
 c          Leading dimension of V exactly as declared in the calling
 c          program.
 c
-c  H       Double precision (KEV+NP) by (KEV+NP) array.  (INPUT/OUTPUT)
-c          INPUT: the current KEV+NP upper Hessenberg matrix.
-c          OUTPUT: the updated KEV by KEV upper Hessenberg matrix is in
-c          the leading KEV by KEV submatrix.
+c  H       Double precision (KEV+NP) by (KEV+NP) array.  (OUTPUT)
+c          The updated KEV by KEV upper Hessenberg matrix is in the
+c          leading KEV by KEV submatrix.
 c
 c  LDH     Integer.  (INPUT)
 c          Leading dimension of H exactly as declared in the calling
@@ -55,18 +56,23 @@ c
 c  RNORM   Double precision scalar.  (INPUT)
 c          B-norm of the input RESID.
 c
-c  Z       Double precision (KEV+NP) by (KEV+NP) array.  (INPUT)
-c          Right Schur vectors of the harmonic pencil, ordered so the
-c          first KEV columns span the desired harmonic Ritz vectors.
-c          Only the first KEV columns are referenced.
+c  TSCHUR  Double precision (KEV+NP+1) by (KEV+NP+1) array.  (INPUT)
+c          Real Schur form of the matrix HP of \Remarks 1, reordered so
+c          that its leading KEV+1 by KEV+1 block holds the KEV desired
+c          harmonic Ritz values and the zero eigenvalue. Only this
+c          block is referenced.
 c
-c  LDZ     Integer.  (INPUT)
-c          Leading dimension of Z exactly as declared in the calling
-c          program.
+c  LDTSCHUR Integer.  (INPUT)
+c          Leading dimension of TSCHUR exactly as declared in the
+c          calling program.
 c
-c  U       Double precision array of length KEV+NP+1.  (INPUT)
-c          Unit vector spanning the null space of HBAR^T, where
-c          HBAR = [H; RNORM*e_{m}^T].
+c  QSCHUR  Double precision (KEV+NP+1) by (KEV+NP+1) array.  (INPUT)
+c          Schur vectors corresponding to TSCHUR. Only the first KEV+1
+c          columns are referenced.
+c
+c  LDQSCHUR Integer.  (INPUT)
+c          Leading dimension of QSCHUR exactly as declared in the
+c          calling program.
 c
 c\EndDoc
 c
@@ -89,29 +95,38 @@ c             the reflectors of DGEHRD.
 c     arscnd  ARPACK utility routine for timing.
 c     dlaset  LAPACK matrix initialization routine.
 c     dlacpy  LAPACK matrix copy routine.
-c     dgemv   Level 2 BLAS routine for matrix vector multiplication.
 c     dgemm   Level 3 BLAS routine for matrix-matrix multiplication.
-c     dtrmm   Level 3 BLAS routine for triangular matrix times matrix.
 c     dcopy   Level 1 BLAS that copies one vector to another.
 c     daxpy   Level 1 BLAS that computes a vector triad.
 c     dscal   Level 1 BLAS that scales a vector.
-c     dnrm2   Level 1 BLAS that computes the norm of a vector.
 c     dvout   ARPACK utility routine that prints vectors.
 c
 c\Remarks
-c  1. The bordered matrix [HK 0] is rotated by 180 degrees and
-c     transposed, then reduced to upper Hessenberg form by DGEHRD.
-c     After rotating back, the last row of the reduced matrix is
-c     BETAK*e_{k}^T. Then
-c         VNEW = V*Zk*Qk,  HNEW = Qk^T*HK(1:KEV,:)*Qk,
-c         rnew = BETAK*[V RESID/RNORM]*p.
+c  1. Let HBAR = [H; RNORM*e_m^T] and let U be the unit vector spanning
+c     the null space of HBAR^T. The (m+1) by (m+1) upper Hessenberg
+c     matrix
+c         HP = HBAR*[I, E],   E = -U(1:m)/U(m+1),
+c     has the harmonic Ritz values and zero as its eigenvalues, and U
+c     is its eigenvector for zero. Keeping the KEV desired harmonic
+c     Ritz values and zero, with Schur vectors Zk = QSCHUR(:,1:KEV+1),
+c     is an exact-shift restart of HP.
+c  2. The (KEV+2) by (KEV+2) bordered matrix
+c         D = | TSCHUR(1:KEV+1,1:KEV+1)  0 |
+c             | QSCHUR(m+1,1:KEV+1)      0 |
+c     is rotated by 180 degrees and transposed, then reduced to upper
+c     Hessenberg form by DGEHRD. After rotating back, D = Qd*Hd*Qd^T
+c     with Qd(KEV+2,KEV+2) = 1. Then X = Zk*Qd(1:KEV+1,1:KEV+1)
+c     satisfies X(m+1,1:KEV) = 0, and
+c         VNEW = V*X(1:m,1:KEV),  HNEW = Hd(1:KEV,1:KEV),
+c         rnew = Hd(KEV+1,KEV)*[V RESID/RNORM]*X(:,KEV+1).
 c
 c\EndLib
 c
 c-----------------------------------------------------------------------
 c
       subroutine dhapps
-     &   ( n, kev, np, v, ldv, h, ldh, resid, rnorm, z, ldz, u )
+     &   ( n, kev, np, v, ldv, h, ldh, resid, rnorm, tschur, ldtschur,
+     &     qschur, ldqschur )
 c
 c     %----------------------------------------------------%
 c     | Include files for debugging and timing information |
@@ -124,7 +139,7 @@ c     %------------------%
 c     | Scalar Arguments |
 c     %------------------%
 c
-      integer    kev, ldh, ldv, ldz, n, np
+      integer    kev, ldh, ldqschur, ldtschur, ldv, n, np
       Double precision
      &           rnorm
 c
@@ -133,8 +148,8 @@ c     | Array Arguments |
 c     %-----------------%
 c
       Double precision
-     &           h(ldh,kev+np), resid(n), u(kev+np+1), v(ldv,kev+np),
-     &           z(ldz,kev+np)
+     &           h(ldh,kev+np), qschur(ldqschur,kev+np+1), resid(n),
+     &           tschur(ldtschur,kev+np+1), v(ldv,kev+np)
 c
 c     %------------%
 c     | Parameters |
@@ -144,38 +159,38 @@ c
      &           one, zero
       parameter (one = 1.0D+0, zero = 0.0D+0)
 c
+c     %--------------------------------------------------%
+c     | V is updated in blocks of ROWBLK rows, or in one |
+c     | block when N*KP is at most SMALLSZ.              |
+c     %--------------------------------------------------%
+c
+      integer    rowblk, smallsz
+      parameter (rowblk = 1024, smallsz = 1048576)
+c
 c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      integer    i, j, kplusp, msglvl, houseinfo, lwork
+      integer    i, j, kplusp, kp, nd, msglvl, houseinfo, lwork, bsz,
+     &           nrow, ldbuf
       Double precision
-     &           betak, pnorm, qwork(1)
+     &           betak, qwork(1)
 c
 c     %-----------------------%
 c     | Local Array Arguments |
 c     %-----------------------%
 c
       Double precision
-     &           pvec(kev+np+1), coef(kev), hz(kev+np+1,kev),
-     &           hk(kev+1,kev), dflip(kev+1,kev+1), tau(kev),
-     &           qk(kev,kev), qfinal(kev+np,kev+1)
-      Double precision, allocatable, save :: housework(:), vnew(:,:)
+     &           dflip(kev+2,kev+2), tau(kev+1), qk(kev+1,kev+1),
+     &           xk(kev+np+1,kev+1)
+      Double precision, allocatable, save :: housework(:), vbuf(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
 c     %----------------------%
 c
-      external   dcopy, daxpy, dscal, dlaset, dlacpy, dgemv, dgemm,
-     &           dtrmm, dgehrd, dorghr, arscnd, dvout
-c
-c     %--------------------%
-c     | External Functions |
-c     %--------------------%
-c
-      Double precision
-     &           dnrm2
-      external   dnrm2
+      external   dcopy, daxpy, dscal, dlaset, dlacpy, dgemm,
+     &           dgehrd, dorghr, arscnd, dvout
 c
 c     %-----------------------%
 c     | Executable Statements |
@@ -190,6 +205,8 @@ c
       msglvl = mnapps
 c
       kplusp = kev + np
+      kp = kev + 1
+      nd = kev + 2
 c
 c     %-----------------------------------------------%
 c     | Quick return if there are no values to remove |
@@ -199,126 +216,109 @@ c
 c
 c     %-------------------------------------------------%
 c     | Workspace query for DGEHRD and DORGHR, with     |
-c     | 8*(KEV+1) as a floor.                           |
+c     | 8*ND as a floor.                                |
 c     %-------------------------------------------------%
 c
-      call dgehrd (kev+1, 1, kev+1, dflip, kev+1, tau, qwork, -1,
-     &             houseinfo)
+      call dgehrd (nd, 1, nd, dflip, nd, tau, qwork, -1, houseinfo)
       lwork = int(qwork(1))
-      call dorghr (kev+1, 1, kev+1, dflip, kev+1, tau, qwork, -1,
-     &             houseinfo)
-      lwork = max(lwork, int(qwork(1)), 8*(kev+1))
+      call dorghr (nd, 1, nd, dflip, nd, tau, qwork, -1, houseinfo)
+      lwork = max(lwork, int(qwork(1)), 8*nd)
       if (allocated(housework)) then
          if (size(housework) .lt. lwork) deallocate (housework)
       end if
       if (.not. allocated(housework)) allocate (housework(lwork))
 c
-c     %--------------------------------------------------%
-c     | PVEC = U orthogonalized against [Zk; 0], with    |
-c     | two passes of classical Gram-Schmidt.            |
-c     %--------------------------------------------------%
+c     %--------------------------------------------------------%
+c     | DFLIP is D of \Remarks 2 rotated by 180 degrees and    |
+c     | transposed: DFLIP(i,j) = D(nd+1-j,nd+1-i). Its first   |
+c     | row is zero and its first column holds the last row of |
+c     | QSCHUR(:,1:KP) in reverse order.                       |
+c     %--------------------------------------------------------%
 c
-      call dcopy (kplusp+1, u, 1, pvec, 1)
-      do 10 i = 1, 2
-         call dgemv ('T', kplusp, kev, one, z, ldz, pvec, 1,
-     &               zero, coef, 1)
-         call dgemv ('N', kplusp, kev, -one, z, ldz, coef, 1,
-     &               one, pvec, 1)
+      call dlaset ('All', 1, nd, zero, zero, dflip, nd)
+      do 10 i = 2, nd
+         dflip(i,1) = qschur(kplusp+1, nd+1-i)
    10 continue
-      pnorm = dnrm2 (kplusp+1, pvec, 1)
-      call dscal (kplusp+1, one/pnorm, pvec, 1)
-c
-c     %--------------------------------------------------%
-c     | HZ = HBAR*Zk, HBAR = [H; RNORM*e_m^T], using the |
-c     | upper triangle of H and then its subdiagonal.    |
-c     %--------------------------------------------------%
-c
-      call dlacpy ('All', kplusp, kev, z, ldz, hz, kplusp+1)
-      call dtrmm ('Left', 'Upper', 'No transpose', 'Non-unit', kplusp,
-     &            kev, one, h, ldh, hz, kplusp+1)
-      do 20 i = 1, kplusp-1
-         call daxpy (kev, h(i+1,i), z(i,1), ldz, hz(i+1,1), kplusp+1)
-   20 continue
-      call dcopy (kev, z(kplusp,1), ldz, hz(kplusp+1,1), kplusp+1)
-      call dscal (kev, rnorm, hz(kplusp+1,1), kplusp+1)
-c
-c     %-----------------------------------------%
-c     | HK = PK^T*HZ, PK = [[Zk; 0] PVEC]        |
-c     %-----------------------------------------%
-c
-      call dgemm ('T', 'N', kev, kev, kplusp, one, z, ldz,
-     &            hz, kplusp+1, zero, hk, kev+1)
-      call dgemv ('T', kplusp+1, kev, one, hz, kplusp+1, pvec, 1,
-     &            zero, hk(kev+1,1), kev+1)
-c
-c     %--------------------------------------------------------%
-c     | DFLIP is [HK 0] rotated by 180 degrees and transposed: |
-c     | DFLIP(i,j) = [HK 0](kev+2-j,kev+2-i). Its first row is |
-c     | zero.                                                  |
-c     %--------------------------------------------------------%
-c
-      call dlaset ('All', 1, kev+1, zero, zero, dflip, kev+1)
-      do 40 j = 1, kev+1
-         do 30 i = 2, kev+1
-            dflip(i,j) = hk(kev+2-j, kev+2-i)
-   30    continue
-   40 continue
+      do 30 j = 2, nd
+         do 20 i = 2, nd
+            dflip(i,j) = tschur(nd+1-j, nd+1-i)
+   20    continue
+   30 continue
 c
 c     %---------------------------------------------------------%
 c     | Reduce DFLIP to upper Hessenberg form, and rotate back  |
 c     | to obtain the new KEV by KEV upper Hessenberg H and     |
-c     | BETAK = HNEW(KEV+1,KEV). These are read from entries on |
+c     | BETAK = Hd(KEV+1,KEV). These are read from entries on   |
 c     | or above the subdiagonal of DFLIP, before DORGHR        |
 c     | overwrites DFLIP with the orthogonal factor, from which |
-c     | Qk is then read.                                        |
+c     | Qd(1:KP,1:KP) is then read.                             |
 c     %---------------------------------------------------------%
 c
-      call dgehrd (kev+1, 1, kev+1, dflip, kev+1, tau,
-     &             housework, lwork, houseinfo)
+      call dgehrd (nd, 1, nd, dflip, nd, tau, housework, lwork,
+     &             houseinfo)
 c
       if (kev .gt. 2) then
          call dlaset ('Lower', kev-2, kev-2, zero, zero, h(3,1), ldh)
       end if
-      do 60 j = 1, kev
-         do 50 i = 1, min(j+1,kev)
-            h(i,j) = dflip(kev+2-j, kev+2-i)
-   50    continue
+      do 50 j = 1, kev
+         do 40 i = 1, min(j+1,kev)
+            h(i,j) = dflip(nd+1-j, nd+1-i)
+   40    continue
+   50 continue
+      betak = dflip(3,2)
+c
+      call dorghr (nd, 1, nd, dflip, nd, tau, housework, lwork,
+     &             houseinfo)
+c
+      do 60 j = 1, kp
+         call dcopy (kp, dflip(2,nd+1-j), -1, qk(1,j), 1)
    60 continue
-      betak = dflip(2,1)
 c
-      call dorghr (kev+1, 1, kev+1, dflip, kev+1, tau,
-     &             housework, lwork, houseinfo)
+c     %------------------------------------------------------%
+c     | XK = QSCHUR(:,1:KP)*Qd(1:KP,1:KP), and V*XK(1:m,:)   |
+c     | holds the new V and, in its last column, the part of |
+c     | the next basis vector in the range of V.             |
+c     %------------------------------------------------------%
 c
-      do 90 j = 1, kev
-         call dcopy (kev, dflip(2,kev+2-j), -1, qk(1,j), 1)
-   90 continue
+      call dgemm ('N', 'N', kplusp+1, kp, kp, one, qschur, ldqschur,
+     &            qk, kp, zero, xk, kplusp+1)
 c
-c     %--------------------------------------------------------%
-c     | QFINAL = [Zk*Qk PVEC(1:m)], so that V*QFINAL holds the |
-c     | new V and, in its last column, V*PVEC(1:m).            |
-c     %--------------------------------------------------------%
+c     %------------------------------------------------------%
+c     | RESID = BETAK*w, where w = [V RESID/RNORM]*XK(:,KP)  |
+c     | is a unit vector orthogonal to the new V. RESID is   |
+c     | scaled here, and BETAK*V*XK(1:m,KP) is added below.  |
+c     %------------------------------------------------------%
 c
-      call dgemm ('N', 'N', kplusp, kev, kev, one, z, ldz,
-     &            qk, kev, zero, qfinal, kplusp)
-      call dcopy (kplusp, pvec, 1, qfinal(1,kev+1), 1)
-c
-      if (allocated(vnew)) then
-         if (size(vnew,1) .ne. n .or. size(vnew,2) .lt. kev+1)
-     &      deallocate (vnew)
+      if (rnorm .gt. zero) then
+         call dscal (n, betak*xk(kplusp+1,kp)/rnorm, resid, 1)
+      else
+         call dscal (n, zero, resid, 1)
       end if
-      if (.not. allocated(vnew)) allocate (vnew(n,kev+1))
-      call dgemm ('N', 'N', n, kev+1, kplusp, one, v, ldv, qfinal,
-     &            kplusp, zero, vnew, n)
 c
-c     %--------------------------------------------------------%
-c     | RESID = BETAK*w, where w = [V RESID/RNORM]*PVEC is a   |
-c     | unit vector orthogonal to the new V.                   |
-c     %--------------------------------------------------------%
+c     %-------------------------------------------------------%
+c     | Rows of V*XK(1:m,:) depend only on the same rows of   |
+c     | V, so V and RESID are updated one block of rows at a  |
+c     | time and only a BSZ by KP buffer is needed.           |
+c     %-------------------------------------------------------%
 c
-      call dscal (n, betak*pvec(kplusp+1)/rnorm, resid, 1)
-      call daxpy (n, betak, vnew(1,kev+1), 1, resid, 1)
-c
-      call dlacpy ('All', n, kev, vnew, n, v, ldv)
+      if (n .le. smallsz/kp) then
+         bsz = n
+      else
+         bsz = rowblk
+      end if
+      if (allocated(vbuf)) then
+         if (size(vbuf,1) .lt. bsz .or. size(vbuf,2) .lt. kp)
+     &      deallocate (vbuf)
+      end if
+      if (.not. allocated(vbuf)) allocate (vbuf(bsz,kp))
+      ldbuf = size(vbuf,1)
+      do 70 i = 1, n, bsz
+         nrow = min(bsz, n-i+1)
+         call dgemm ('N', 'N', nrow, kp, kplusp, one, v(i,1), ldv,
+     &               xk, kplusp+1, zero, vbuf, ldbuf)
+         call daxpy (nrow, betak, vbuf(1,kp), 1, resid(i), 1)
+         call dlacpy ('All', nrow, kev, vbuf, ldbuf, v(i,1), ldv)
+   70 continue
 c
       if (msglvl .gt. 1) then
          call dvout (logfil, 1, [betak], ndigit,

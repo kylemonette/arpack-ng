@@ -166,8 +166,9 @@ c          the convergence criterion.
 c
 c          IPARAM(6) = HARMFB (OUTPUT)
 c          1 if the iteration switched to Ritz values because H became
-c          numerically singular, or the harmonic pencil could not be
-c          computed or reordered (see dhaup2), and 0 otherwise.
+c          numerically singular, or the Schur form of the harmonic
+c          matrix HP could not be computed or reordered (see dhaup2),
+c          and 0 otherwise.
 c
 c          IPARAM(7) = MODE
 c          On INPUT determines what type of eigenproblem is being solved.
