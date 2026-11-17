@@ -214,18 +214,27 @@ c
      &           one, zero
       parameter (one = 1.0D+0, zero = 0.0D+0)
 c
+c     %--------------------------------------------------%
+c     | V is updated in blocks of ROWBLK rows, or in one |
+c     | block when N*KEV is at most SMALLSZ.             |
+c     %--------------------------------------------------%
+c
+      integer    rowblk, smallsz
+      parameter (rowblk = 1024, smallsz = 1048576)
+c
 c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      integer    i, j, kplusp, msglvl, houseinfo, lwork
+      integer    i, j, kplusp, msglvl, houseinfo, lwork, bsz, nrow,
+     &           ldbuf
       Double precision
      &           betak, qwork(1)
       Double precision
      &           d(kev+1,kev+1), qarrow(kev+1,kev+1),
      &           dflip(kev+1,kev+1), tau(kev),
      &           qk1(kev,kev), qfinal(kev+np,kev)
-      Double precision, allocatable, save :: housework(:), vnew(:,:)
+      Double precision, allocatable, save :: housework(:), vbuf(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -392,18 +401,30 @@ c
 c
       end if
 c
-c     %--------------------------------------------------------%
-c     | Update V: V(:,1:kev) <- V(:,1:kplusp) * QFINAL.        |
-c     %--------------------------------------------------------%
+c     %-------------------------------------------------------%
+c     | Update V: V(:,1:kev) <- V(:,1:kplusp) * QFINAL. Rows  |
+c     | of the new V depend only on the same rows of the old  |
+c     | V, so V is updated one block of rows at a time and    |
+c     | only a BSZ by KEV buffer is needed.                   |
+c     %-------------------------------------------------------%
 c
-      if (allocated(vnew)) then
-         if (size(vnew,1) .ne. n .or. size(vnew,2) .lt. kev)
-     &      deallocate (vnew)
+      if (n .le. smallsz/kev) then
+         bsz = n
+      else
+         bsz = rowblk
       end if
-      if (.not. allocated(vnew)) allocate (vnew(n,kev))
-      call dgemm ('N', 'N', n, kev, kplusp, one, v, ldv, qfinal,
-     &            kplusp, zero, vnew, n)
-      call dlacpy ('All', n, kev, vnew, n, v, ldv)
+      if (allocated(vbuf)) then
+         if (size(vbuf,1) .lt. bsz .or. size(vbuf,2) .lt. kev)
+     &      deallocate (vbuf)
+      end if
+      if (.not. allocated(vbuf)) allocate (vbuf(bsz,kev))
+      ldbuf = size(vbuf,1)
+      do 140 i = 1, n, bsz
+         nrow = min(bsz, n-i+1)
+         call dgemm ('N', 'N', nrow, kev, kplusp, one, v(i,1), ldv,
+     &               qfinal, kplusp, zero, vbuf, ldbuf)
+         call dlacpy ('All', nrow, kev, vbuf, ldbuf, v(i,1), ldv)
+  140 continue
 c
 c     %--------------------------------------------------------%
 c     | Update the residual vector. As shown in Reference 2,   |

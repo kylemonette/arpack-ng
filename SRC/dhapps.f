@@ -159,11 +159,20 @@ c
      &           one, zero
       parameter (one = 1.0D+0, zero = 0.0D+0)
 c
+c     %--------------------------------------------------%
+c     | V is updated in blocks of ROWBLK rows, or in one |
+c     | block when N*KP is at most SMALLSZ.              |
+c     %--------------------------------------------------%
+c
+      integer    rowblk, smallsz
+      parameter (rowblk = 1024, smallsz = 1048576)
+c
 c     %---------------%
 c     | Local Scalars |
 c     %---------------%
 c
-      integer    i, j, kplusp, kp, nd, msglvl, houseinfo, lwork
+      integer    i, j, kplusp, kp, nd, msglvl, houseinfo, lwork, bsz,
+     &           nrow, ldbuf
       Double precision
      &           betak, qwork(1)
 c
@@ -174,7 +183,7 @@ c
       Double precision
      &           dflip(kev+2,kev+2), tau(kev+1), qk(kev+1,kev+1),
      &           xk(kev+np+1,kev+1)
-      Double precision, allocatable, save :: housework(:), vnew(:,:)
+      Double precision, allocatable, save :: housework(:), vbuf(:,:)
 c
 c     %----------------------%
 c     | External Subroutines |
@@ -274,17 +283,10 @@ c
       call dgemm ('N', 'N', kplusp+1, kp, kp, one, qschur, ldqschur,
      &            qk, kp, zero, xk, kplusp+1)
 c
-      if (allocated(vnew)) then
-         if (size(vnew,1) .ne. n .or. size(vnew,2) .lt. kp)
-     &      deallocate (vnew)
-      end if
-      if (.not. allocated(vnew)) allocate (vnew(n,kp))
-      call dgemm ('N', 'N', n, kp, kplusp, one, v, ldv, xk, kplusp+1,
-     &            zero, vnew, n)
-c
 c     %------------------------------------------------------%
 c     | RESID = BETAK*w, where w = [V RESID/RNORM]*XK(:,KP)  |
-c     | is a unit vector orthogonal to the new V.            |
+c     | is a unit vector orthogonal to the new V. RESID is   |
+c     | scaled here, and BETAK*V*XK(1:m,KP) is added below.  |
 c     %------------------------------------------------------%
 c
       if (rnorm .gt. zero) then
@@ -292,9 +294,31 @@ c
       else
          call dscal (n, zero, resid, 1)
       end if
-      call daxpy (n, betak, vnew(1,kp), 1, resid, 1)
 c
-      call dlacpy ('All', n, kev, vnew, n, v, ldv)
+c     %-------------------------------------------------------%
+c     | Rows of V*XK(1:m,:) depend only on the same rows of   |
+c     | V, so V and RESID are updated one block of rows at a  |
+c     | time and only a BSZ by KP buffer is needed.           |
+c     %-------------------------------------------------------%
+c
+      if (n .le. smallsz/kp) then
+         bsz = n
+      else
+         bsz = rowblk
+      end if
+      if (allocated(vbuf)) then
+         if (size(vbuf,1) .lt. bsz .or. size(vbuf,2) .lt. kp)
+     &      deallocate (vbuf)
+      end if
+      if (.not. allocated(vbuf)) allocate (vbuf(bsz,kp))
+      ldbuf = size(vbuf,1)
+      do 70 i = 1, n, bsz
+         nrow = min(bsz, n-i+1)
+         call dgemm ('N', 'N', nrow, kp, kplusp, one, v(i,1), ldv,
+     &               xk, kplusp+1, zero, vbuf, ldbuf)
+         call daxpy (nrow, betak, vbuf(1,kp), 1, resid(i), 1)
+         call dlacpy ('All', nrow, kev, vbuf, ldbuf, v(i,1), ldv)
+   70 continue
 c
       if (msglvl .gt. 1) then
          call dvout (logfil, 1, [betak], ndigit,
